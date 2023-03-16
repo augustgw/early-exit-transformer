@@ -1,12 +1,8 @@
-### WARNING
-This code was written in 2019, and I was not very familiar with transformer model in that time.
-So don't trust this code too much. Currently I am not managing this code well, so please open pull requests if you find bugs in the code and want to fix.
+# Early-Exit Transformer model for ASR/SLU
 
-# Transformer
-My own implementation Transformer model (Attention is All You Need - Google Brain, 2017)
-<br><br>
-![model](image/model.png)
-<br><br>
+Transformer model [(Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) implementation adapted from [Hyunwoong Ko](https://github.com/hyunwoongko/transformer) by Daniele Falavigna 
+
+<!-- # Transformer
 
 ## 1. Implementations
 
@@ -421,4 +417,4 @@ I follow original paper's parameter settings. (below) <br>
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
-    limitations under the License.
+    limitations under the License. -->
