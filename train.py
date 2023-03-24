@@ -127,7 +127,7 @@ def train(iterator):
         src = batch[0].to(device) 
         trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
         trg_expect =batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
-        print("EXPECTED]:",text_transform.int_to_text(trg_expect[0]))
+        # print("EXPECTED]:",text_transform.int_to_text(trg_expect[0]))
         #print("INPUT:",text_transform.int_to_text(trg[0]))
 
         output, encoder = model(src, trg)
@@ -152,7 +152,7 @@ def train(iterator):
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
         out_text = output.data.topk(1)[1]
-        print("OUT:",text_transform.int_to_text(out_text[0]))   
+        # print("OUT:",text_transform.int_to_text(out_text[0]))   
         
 
         epoch_loss += loss.item()
