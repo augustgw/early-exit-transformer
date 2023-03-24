@@ -273,5 +273,5 @@ def run(total_epoch, best_loss):
 
 
 if __name__ == '__main__':
-    torch.multiprocessing.set_start_method('spawn')  
+    torch.multiprocessing.set_start_method('spawn', force=True)  
     run(total_epoch=epoch, best_loss=inf)

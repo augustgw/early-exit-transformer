@@ -11,7 +11,7 @@ num_workers=10
 shuffle=True
 
 # model parameter setting
-batch_size = 48
+batch_size = 16
 max_len = 2000
 d_model = 256
 n_encoder_layers=12
@@ -43,7 +43,7 @@ factor = 0.9
 adam_eps = 1e-9#5e-9
 patience = 10
 warmup = 8000 #dataloader.size()
-epoch = 10000
+epoch = 4
 clip = 1.0
 weight_decay = 5e-4
 #weight_decay = 0.1 # pytorch transformer class 

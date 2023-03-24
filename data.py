@@ -30,7 +30,7 @@ enc_voc_size = len(loader.source.vocab)
 dec_voc_size = len(loader.target.vocab)
 '''
 
-train_dataset = torchaudio.datasets.LIBRISPEECH("/corpora/LibriSpeech", url="train-clean-100", download=False)
+train_dataset = torchaudio.datasets.LIBRISPEECH(root='corpora', url="train-clean-100", download=True)
 
 data_loader = torch.utils.data.DataLoader(train_dataset, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
 
