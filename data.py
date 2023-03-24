@@ -30,7 +30,14 @@ enc_voc_size = len(loader.source.vocab)
 dec_voc_size = len(loader.target.vocab)
 '''
 
-train_dataset = torchaudio.datasets.LIBRISPEECH(root='corpora', url="train-clean-100", download=True)
+train_dataset1 = torchaudio.datasets.LIBRISPEECH(
+    "corpora", url="train-clean-100", download=True)
+train_dataset2 = torchaudio.datasets.LIBRISPEECH(
+    "corpora", url="train-clean-360", download=True)
+train_dataset3 = torchaudio.datasets.LIBRISPEECH(
+    "corpora", url="train-other-500", download=True)
+train_dataset = torch.utils.data.ConcatDataset(
+    [train_dataset1, train_dataset2, train_dataset3])
 
 data_loader = torch.utils.data.DataLoader(train_dataset, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
 
