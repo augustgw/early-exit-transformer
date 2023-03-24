@@ -198,7 +198,7 @@ def validate(model, iterator, criterion):
 def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
-    nepoch = 23#-1
+    nepoch = -1
     moddir=os.getcwd()+'/trained_model/seq_to_seq/'
     os.makedirs(moddir, exist_ok=True)            
             
