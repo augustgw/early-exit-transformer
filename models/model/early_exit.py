@@ -26,117 +26,9 @@ class Conv1dSubampling(nn.Module):
         outputs = self.sequential(inputs)
         return outputs               
 
-class Transformer(nn.Module):
-
-    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, n_decoder_layers, features_length, drop_prob, device):
-        super().__init__()
-        self.src_pad_idx = src_pad_idx
-        self.trg_pad_idx = trg_pad_idx
-        self.trg_sos_idx = trg_sos_idx
-        self.device = device
-        self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
-        self.positional_encoder_1 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
-        self.positional_encoder_2 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)        
-        self.emb = nn.Embedding(dec_voc_size, d_model)
-        self.linear_1=nn.Linear(d_model, dec_voc_size)
-        self.linear_2=nn.Linear(d_model, dec_voc_size)
-        self.layer_norm=nn.LayerNorm(d_model,eps=1e-5)
-        
-        self.encoder = Encoder(d_model=d_model,
-                               n_head=n_head,
-                               max_len=max_len,
-                               ffn_hidden=dim_feed_forward,
-                               enc_voc_size=enc_voc_size,
-                               drop_prob=drop_prob,
-                               n_layers=n_encoder_layers,
-                               device=device)
-
-
-        self.decoder = nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=d_model,
-                                                                        nhead=n_head,
-                                                                        dim_feedforward=dim_feed_forward,
-                                                                        dropout=drop_prob,
-                                                                        batch_first= "True",
-                                                                        norm_first = "True"),
-                                             n_decoder_layers, self.layer_norm)
-        
-    def _encoder_(self, src: Tensor) -> Tensor:
-        src = self.conv_subsample(src)
-        src = self.positional_encoder_1(src.permute(0,2,1))
-        src_pad_mask = None
-        enc_out=self.encoder(src, src_pad_mask)
-        return enc_out        
-
-    def ctc_encoder(self, src: Tensor) -> Tensor:
-        src = self.conv_subsample(src)
-        src = self.positional_encoder_1(src.permute(0,2,1))
-        src_pad_mask = None
-        enc_out=self.encoder(src, src_pad_mask)
-        enc_out = self.linear_1(enc_out) 
-        enc_out = torch.nn.functional.log_softmax(enc_out,dim=2)
-        return enc_out        
-
-    def _decoder_(self, trg: Tensor, enc: Tensor, src_trg_mask: Optional[Tensor] = None) -> Tensor:
-
-        tgt_mask = self.create_tgt_mask(trg.size(1)).to(self.device)        
-        tgt_key_padding_mask = self.create_pad_mask(trg, self.trg_pad_idx).to(self.device)
-
-        trg=self.emb(trg)
-        trg=self.positional_encoder_2(trg)
-
-        output=self.decoder(trg,enc,tgt_mask=tgt_mask,tgt_key_padding_mask=tgt_key_padding_mask)
-        output = self.linear_2(output)        
-        output = torch.nn.functional.log_softmax(output,dim=2)
-
-        return output
-    
-    def forward(self, src, trg):
-
-        #Encoder
-        src = self.conv_subsample(src)
-        src = self.positional_encoder_1(src.permute(0,2,1))
-
-        src_pad_mask = None 
-        enc = self.encoder(src, src_pad_mask)                                        
-        
-        #Decoder
-
-
-        tgt_mask = self.create_tgt_mask(trg.size(1)).to(self.device)        
-        tgt_key_padding_mask = self.create_pad_mask(trg, self.trg_pad_idx).to(self.device)
-
-        trg=self.emb(trg)
-        trg=self.positional_encoder_2(trg)
-
-        output=self.decoder(trg,enc,tgt_mask=tgt_mask,tgt_key_padding_mask=tgt_key_padding_mask) 
-        output = self.linear_2(output)
-        output = torch.nn.functional.log_softmax(output,dim=2)
-        
-        #for ctc loss
-        enc = self.linear_1(enc) 
-        enc = torch.nn.functional.log_softmax(enc,dim=2)
-
-        return output, enc
-
-    def create_pad_mask(self, matrix: torch.tensor, pad_token: int) -> torch.tensor:
-        # If matrix = [1,2,3,0,0,0] where pad_token=0, the result mask is
-        # [False, False, False, True, True, True]
-        return (matrix == pad_token)
-
-    def create_tgt_mask(self, sz: int) -> Tensor:
-        r"""Generate a square mask for the sequence. The masked positions are filled with float('-inf').
-            Unmasked positions are filled with float(0.0).
-        """
- 
-        return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1)
-
-
-
-
-
 class Early_transformer(nn.Module):
 
-    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, n_decoder_layers, features_length, drop_prob, device):
+    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, n_decoder_layers, features_length, drop_prob, device):
         super().__init__()
         self.src_pad_idx = src_pad_idx
         self.trg_pad_idx = trg_pad_idx
@@ -147,28 +39,28 @@ class Early_transformer(nn.Module):
         self.positional_encoder_1 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
         self.positional_encoder_2 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)        
         self.emb = nn.Embedding(dec_voc_size, d_model)
-        self.linear_1=nn.Linear(d_model, dec_voc_size)
-        self.linear_2=nn.Linear(d_model, dec_voc_size)
         self.layer_norm=nn.LayerNorm(d_model,eps=1e-5)
-        
-        self.encoder = Encoder(d_model=d_model,
-                               n_head=n_head,
-                               max_len=max_len,
-                               ffn_hidden=dim_feed_forward,
-                               enc_voc_size=enc_voc_size,
-                               drop_prob=drop_prob,
-                               n_layers=n_encoder_layers,
-                               device=device)
 
-
-        self.decoder = nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=d_model,
-                                                                        nhead=n_head,
-                                                                        dim_feedforward=dim_feed_forward,
-                                                                        dropout=drop_prob,
-                                                                        batch_first= "True",
-                                                                        norm_first = "True"),
-                                             n_decoder_layers, self.layer_norm)
+        self.linears_1=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
+        self.linears_2=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
         
+        self.encoders = nn.ModuleList([Encoder(d_model=d_model,
+                            n_head=n_head,
+                            max_len=max_len,
+                            ffn_hidden=dim_feed_forward,
+                            enc_voc_size=enc_voc_size,
+                            drop_prob=drop_prob,
+                            n_layers=n_encoder_layers,
+                            device=device) for _ in range(self.n_enc_replay)])
+
+        self.decoders = nn.ModuleList([nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=d_model,
+                            nhead=n_head,
+                            dim_feedforward=dim_feed_forward,
+                            dropout=drop_prob,
+                            batch_first= "True",
+                            norm_first = "True"),
+                            n_decoder_layers, self.layer_norm) for _ in range(self.n_enc_replay)])
+    '''
     def _encoder_(self, src: Tensor) -> Tensor:
         src = self.conv_subsample(src)
         src = self.positional_encoder_1(src.permute(0,2,1))
@@ -198,6 +90,7 @@ class Early_transformer(nn.Module):
         output = torch.nn.functional.log_softmax(output,dim=2)
 
         return output
+    '''
     
     def forward(self, src, trg):
 
@@ -211,16 +104,74 @@ class Early_transformer(nn.Module):
 
         src_pad_mask = None
         enc = src
-        for i in range(self.n_enc_replay):
-            enc = self.encoder(enc, src_pad_mask)                                        
-        
+        output, enc_out= [], []
+        for linear_1, linear_2, encoder, decoder  in zip(self.linears_1, self.linears_2, self.encoders, self.decoders):
+            enc = encoder(enc, src_pad_mask)                                        
+            
             #Decoder
-            output=self.decoder(trg,enc,tgt_mask=tgt_mask,tgt_key_padding_mask=tgt_key_padding_mask) 
-            output = self.linear_2(output)
-            output = torch.nn.functional.log_softmax(output,dim=2)
-        
+            out = decoder(trg,enc,tgt_mask=tgt_mask,tgt_key_padding_mask=tgt_key_padding_mask) 
+            out = linear_2(out)
+            out = torch.nn.functional.log_softmax(out,dim=2)
+            output += [out.unsqueeze(0)]#output.append(out.unsqueeze(0))
             #for ctc loss
-            enc = self.linear_1(enc) 
-            enc = torch.nn.functional.log_softmax(enc,dim=2)
+            out = linear_1(enc) 
+            out = torch.nn.functional.log_softmax(out,dim=2)
+            enc_out += [out.unsqueeze(0)]#output.append(out.unsqueeze(0))
+        output=torch.cat(output)
+        enc_out=torch.cat(enc_out)
+        
+        return output, enc_out
 
-        return output, enc
+
+    def create_pad_mask(self, matrix: torch.tensor, pad_token: int) -> torch.tensor:
+        # If matrix = [1,2,3,0,0,0] where pad_token=0, the result mask is
+        # [False, False, False, True, True, True]
+        return (matrix == pad_token)
+
+    def create_tgt_mask(self, sz: int) -> Tensor:
+        r"""Generate a square mask for the sequence. The masked positions are filled with float('-inf').
+            Unmasked positions are filled with float(0.0).
+        """
+        return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1)
+
+
+class Early_encoder(nn.Module):
+
+    def __init__(self, src_pad_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers,  features_length, drop_prob, device):
+        super().__init__()
+        self.src_pad_idx = src_pad_idx
+        self.n_enc_replay=n_enc_replay
+        self.device = device
+        self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
+        self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
+
+        self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
+        
+        self.encoders = nn.ModuleList([Encoder(d_model=d_model,
+                            n_head=n_head,
+                            max_len=max_len,
+                            ffn_hidden=dim_feed_forward,
+                            enc_voc_size=enc_voc_size,
+                            drop_prob=drop_prob,
+                            n_layers=n_encoder_layers,
+                            device=device) for _ in range(self.n_enc_replay)])
+
+    def forward(self, src):
+
+        #Encoder
+        src = self.conv_subsample(src)
+        src = self.positional_encoder(src.permute(0,2,1))
+        src_pad_mask = None
+        enc = src
+        enc_out= []
+        for linear, encoder  in zip(self.linears, self.encoders):
+            enc = encoder(enc, src_pad_mask)                                        
+            
+            #for ctc loss
+            out = linear(enc) 
+            out = torch.nn.functional.log_softmax(out,dim=2)
+            enc_out += [out.unsqueeze(0)]#output.append(out.unsqueeze(0))
+        enc_out=torch.cat(enc_out)
+        
+        return enc_out
+    
