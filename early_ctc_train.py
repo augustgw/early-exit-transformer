@@ -155,7 +155,7 @@ def train(iterator):
         for enc in  encoder:
             ctc_input_len=torch.full(size=(enc.size(0),), fill_value = enc.size(1), dtype=torch.long)
             loss += wL * ctc_loss(enc.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
-            wL -= 0.1
+            wL += 0.1
             if i % 300 ==0:
                 print("CTC_OUT at [",i,"]:",ctc_predict(enc[0].unsqueeze(0)))
             

@@ -6,16 +6,17 @@
 import torch
 
 # GPU device setting
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = 'cpu'#torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_workers=0
 shuffle=False
-seq_to_seq_flag= True
+seq_to_seq_flag= False
 # model parameter setting
 batch_size = 1
 max_len = 2000
 d_model = 256
-n_encoder_layers=12
+n_encoder_layers=2
 n_decoder_layers=6
+n_enc_replay= 6
 n_heads = 8
 dim_feed_forward= 2048
 drop_prob = 0.1
