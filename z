@@ -1,8 +1,0 @@
-#!/bin/sh
-
-for i in 0.3 0.5 0.8
-do
-    python inference.py $i > trained_model/seq_to_seq_/mod024-transformer-$i.log
-    echo $i
-done
-
