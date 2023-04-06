@@ -142,7 +142,10 @@ def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=tr
             spec = melspec_transform(spec).to(device)
             tensors += spec
             del spec
-            tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$"))
+            if bpe_flag == True:
+                tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label) + [sp.eos_id()])
+            else:
+                tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$"))
             targets += [tg.unsqueeze(0)]
             t_len += [len(tg)]
             k=k+1
@@ -167,10 +170,12 @@ def collate_infer_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_to
     for waveform, _, label, *_, ut_id in batch:
         spec=spec_transform(waveform)#.to(device)
         spec = melspec_transform(spec).to(device)
+        
         npads = 1000
         if spec.size(2)>1000:
             npads = 500
         spec = F.pad(spec, (0,npads), mode='constant',value=0)
+        
         tensors += spec
         del spec
         if bpe_flag == True:

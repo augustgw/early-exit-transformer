@@ -14,16 +14,16 @@ from torch.optim import Adam,AdamW
 import sys
 
 from data import *
-from models.model.transformer import Transformer
+from models.model.early_exit import Early_encoder, Early_transformer
 from util.bleu import idx_to_word, get_bleu
 from util.epoch_timer import epoch_time
 from util.data_loader import text_transform
+from util.beam_infer import ctc_predict
 from conf import *
+
 
 cuda = torch.cuda.is_available()
 device = torch.device('cuda' if cuda else 'cpu')
-
-
 
 class NoamOpt:
     "Optim wrapper that implements rate."
@@ -73,11 +73,26 @@ def count_parameters(model):
 def initialize_weights(m):
     if hasattr(m, 'weight') and m.weight.dim() > 1:
         nn.init.xavier_uniform_(m.weight.data)
+'''
+model = Early_transformer(src_pad_idx=src_pad_idx,
+                          trg_pad_idx=trg_pad_idx,
+                          trg_sos_idx=trg_sos_idx,
+                          n_enc_replay=n_enc_replay,
+                          enc_voc_size=enc_voc_size,
+                          dec_voc_size=dec_voc_size,
+                          d_model=d_model,                          
+                          max_len=max_len,
+                          dim_feed_forward=dim_feed_forward,
+                          n_head=n_heads,
+                          n_encoder_layers=n_encoder_layers,
+                          n_decoder_layers=n_decoder_layers,
+                          features_length=n_mels,
+                          drop_prob=drop_prob,
+                          device=device).to(device)
+'''
 
-
-model = Transformer(src_pad_idx=src_pad_idx,
-                    trg_pad_idx=trg_pad_idx,
-                    trg_sos_idx=trg_sos_idx,
+model = Early_encoder(src_pad_idx=src_pad_idx,
+                    n_enc_replay=n_enc_replay,
                     d_model=d_model,
                     enc_voc_size=enc_voc_size,
                     dec_voc_size=dec_voc_size,
@@ -85,13 +100,15 @@ model = Transformer(src_pad_idx=src_pad_idx,
                     dim_feed_forward=dim_feed_forward,
                     n_head=n_heads,
                     n_encoder_layers=n_encoder_layers,
-                    n_decoder_layers=n_decoder_layers,
                     features_length=n_mels,
                     drop_prob=drop_prob,
                     device=device).to(device)
 
+
 print(f'The model has {count_parameters(model):,} trainable parameters')
-print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers," num_decoder_layers:", n_decoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device) 
+#print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers," num_decoder_layers:", n_decoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)
+warmup=len(data_loader)
+print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device) 
 
 model.apply(initialize_weights)
 
@@ -110,12 +127,10 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
 loss_fn = nn.CrossEntropyLoss()
 ctc_loss = nn.CTCLoss(blank=0,zero_infinity=True)
 
-#optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(),
-#                                          lr=0, betas=(0.9, 0.98), eps=adam_eps, weight_decay=weight_decay))
+#optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps, weight_decay=weight_decay))
 
-optimizer = NoamOpt(d_model, warmup, Adam(params=model.parameters(),
-                                          lr=0, betas=(0.9, 0.98), eps=adam_eps)) 
-    
+optimizer = NoamOpt(d_model, warmup, Adam(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps)) 
+flag_distill=True
 def train(iterator):
     
     model.train()
@@ -127,39 +142,59 @@ def train(iterator):
         src = batch[0].to(device) 
         trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
         trg_expect =batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
-        print("EXPECTED]:",text_transform.int_to_text(trg_expect[0]))
         #print("INPUT:",text_transform.int_to_text(trg[0]))
 
-        output, encoder = model(src, trg)
-
-        '''
-        i_stripped=torch.IntTensor(text_transform.text_to_int(text_transform.int_to_text(trg[0]).replace("#",""))).to(device)
-        out,scores,best_combined=beam_search(model, src[0].unsqueeze(0),  i_stripped.unsqueeze(0), max_length=max_utterance_length, beam_size=1, return_best_beam=True, weight_ctc=0.5)
-        best_combined=torch.IntTensor(best_combined)
-        print(" BEAM_OUT:",  text_transform.int_to_text(best_combined.squeeze(0)))
-        '''                               
-        
-        loss_ce = loss_fn(output.permute(0,2,1), trg_expect)
-        
-        ctc_input_len=torch.full(size=(encoder.size(0),), fill_value = encoder.size(1), dtype=torch.long)
+        encoder = model(src)
         ctc_target_len=batch[2]
-        loss_ctc = ctc_loss(encoder.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
+        #print(output.size(), encoder.size())
 
-        loss = 0.7 * loss_ce + 0.3 * loss_ctc
-
+        loss_layer=0
+        loss_distill = 0
+        if i % 300 ==0:
+            if bpe_flag==True:
+                print("EXPECTED:",sp.decode(trg_expect[0].tolist()).lower())
+            else:
+                print("EXPECTED:",text_transform.int_to_text(trg_expect[0]))
+        
+        last_probs=encoder[encoder.size(0)-1]
+        if flag_distill==True:
+            p_teacher = torch.exp(last_probs).detach()
+        ctc_input_len=torch.full(size=(encoder.size(1),), fill_value = encoder.size(2), dtype=torch.long)
+        for enc in  encoder[0:encoder.size(0)-1]:
+            #print(enc.size(),p_teacher.size())
+            #p_distill = p_teacher * enc #distill probs from last layer
+            loss_layer += ctc_loss(enc.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
+            if flag_distill==True:
+                loss_distill += loss_fn(enc.permute(0,2,1),p_teacher.permute(0,2,1)).to(device)
+            if i % 300 ==0:
+                if bpe_flag==True:
+                    print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
+                else:
+                    print("CTC_OUT at [",i,"]:",ctc_predict(enc[0].unsqueeze(0)))
+                    
+        loss_layer += ctc_loss(last_probs.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
+        if i % 300 ==0:
+            if bpe_flag==True:
+                print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
+            else:
+                print("CTC_OUT at [",i,"]:",ctc_predict(last_probs[0].unsqueeze(0)))
+        loss = loss_layer
+        if flag_distill==True:
+            loss = loss_layer + loss_distill
         model.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
-        out_text = output.data.topk(1)[1]
-        print("OUT:",text_transform.int_to_text(out_text[0]))   
         
 
         epoch_loss += loss.item()
-
-        print('step :', round((i / len(iterator)) * 100, 2), '% , loss :', loss.item(), '  loss_ce:', loss_ce.item(), '  loss_ctc:', loss_ctc.item())
-
+        if flag_distill==True:
+            print('step :', round((i / len(iterator)) * 100, 2), '% , loss_layer :', loss_layer.item(), '% , loss_distill :', loss_distill.item(), '% , loss :', loss.item())        
+        else:
+            print('step :', round((i / len(iterator)) * 100, 2), '% , loss :', loss.item())
+    
     return epoch_loss / len(iterator)
+
 
 
 def validate(model, iterator, criterion):
@@ -198,8 +233,8 @@ def validate(model, iterator, criterion):
 def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
-    nepoch = 19#-1
-    moddir=os.getcwd()+'/trained_model/seq_to_seq/'
+    nepoch = 96#-1
+    moddir=os.getcwd()+'/trained_model/bpe_distill/'
     os.makedirs(moddir, exist_ok=True)            
             
     best_model=moddir+'{}mod{:03d}-transformer'.format('',nepoch)
@@ -221,6 +256,7 @@ def run(total_epoch, best_loss):
         total_loss = train(data_loader)
 
         print("TOTAL_LOSS-",step,":=",total_loss)
+        
         thr_l = (prev_loss - total_loss) / total_loss
         if total_loss < prev_loss:
             prev_loss = total_loss
@@ -234,8 +270,6 @@ def run(total_epoch, best_loss):
         else:
             worst_model=moddir+'mod{:03d}-transformer'.format(step)
             print("WORST: not saving:",worst_model)            
-
-
         
         '''
         valid_loss, bleu = evaluate(model, valid_iter, criterion)

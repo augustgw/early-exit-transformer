@@ -3,7 +3,12 @@
 @when : 2019-10-22
 @homepage : https://github.com/gusdnd852
 """
+
 import torch
+import sentencepiece as spm
+
+bpe_flag= True
+flag_distill= False
 
 # GPU device setting
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -14,7 +19,7 @@ shuffle=True
 batch_size = 48
 max_len = 2000
 d_model = 256
-n_encoder_layers=2#12
+n_encoder_layers=2
 n_decoder_layers=6
 n_heads = 8
 n_enc_replay = 6
@@ -29,7 +34,21 @@ trg_eos_idx=31
 enc_voc_size=32
 dec_voc_size=32
 
-bpe_flag= False
+lexicon="lexicon.txt"
+tokens="tokens.txt"
+
+sp = spm.SentencePieceProcessor()
+if bpe_flag == True:
+    sp.load('sentencepiece/build/libri.bpe-256.model')
+    src_pad_idx=0
+    trg_pad_idx=126
+    trg_sos_idx=1
+    trg_eos_idx=2
+    enc_voc_size=sp.get_piece_size()
+    dec_voc_size=sp.get_piece_size()
+    lexicon="sentencepiece/build/librispeech-bpe-256.lex"
+    tokens="sentencepiece/build/librispeech-bpe-256.tok"
+
 sample_rate = 16000
 n_fft = 512
 win_length = 320 #20ms
