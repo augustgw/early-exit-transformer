@@ -132,7 +132,7 @@ text_transform=TextTransform()
 
 def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=trg_pad_idx):   
 
-    tensors, targets, source_pad = [], [], []
+    tensors, targets, t_source = [], [], []
     t_len=[]
     k = 0
     # Gather in lists, and encode labels as indices
@@ -140,9 +140,13 @@ def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=tr
         if len(label) < max_utterance_length:
             spec=spec_transform(waveform)#.to(device)
             spec = melspec_transform(spec).to(device)
+            t_source += [spec.size(2)]
             tensors += spec
             del spec
-            tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$"))
+            if bpe_flag == True:
+                tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label) + [sp.eos_id()])
+            else:
+                tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$"))
             targets += [tg.unsqueeze(0)]
             t_len += [len(tg)]
             k=k+1
@@ -154,23 +158,26 @@ def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=tr
     if tensors:
         tensors = pad_sequence(tensors,0)
         targets = pad_sequence(targets,PAD_token)
-        return tensors.squeeze(1), targets.squeeze(1), torch.tensor(t_len)
+        return tensors.squeeze(1), targets.squeeze(1), torch.tensor(t_len), torch.tensor(t_source)
     else:
         return None
 
 
 def collate_infer_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=trg_pad_idx):   
 
-    tensors, targets, source_pad = [], [], []
+    tensors, targets, t_source = [], [], []
 
     # Gather in lists, and encode labels as indices
     for waveform, _, label, *_, ut_id in batch:
         spec=spec_transform(waveform)#.to(device)
         spec = melspec_transform(spec).to(device)
+        t_source += [spec.size(2)]
+        '''
         npads = 1000
         if spec.size(2)>1000:
             npads = 500
         spec = F.pad(spec, (0,npads), mode='constant',value=0)
+        '''
         tensors += spec
         del spec
         if bpe_flag == True:
@@ -184,5 +191,5 @@ def collate_infer_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_to
 
     tensors = pad_sequence(tensors,0)
     targets = pad_sequence(targets,PAD_token)
-    return tensors.squeeze(1), targets.squeeze(1)
+    return tensors.squeeze(1), targets.squeeze(1), torch.tensor(t_source)
     

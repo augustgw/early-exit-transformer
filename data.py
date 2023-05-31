@@ -36,4 +36,5 @@ train_dataset3 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-o
 train_dataset = torch.utils.data.ConcatDataset([train_dataset1,train_dataset2,train_dataset3]) 
 
 data_loader = torch.utils.data.DataLoader(train_dataset, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
+data_loader_initial = torch.utils.data.DataLoader(train_dataset1, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
 

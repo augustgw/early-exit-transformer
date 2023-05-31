@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from torch import Tensor
 from typing import Optional, Any, Union, Callable   
+from torchaudio.models.conformer import Conformer
 
 from models.model.encoder import Encoder
 from models.embedding.positional_encoding import PositionalEncoding
@@ -26,6 +27,21 @@ class Conv1dSubampling(nn.Module):
         outputs = self.sequential(inputs)
         return outputs               
 
+class Conv2dSubampling(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super(Conv2dSubampling, self).__init__()
+        self.sequential = nn.Sequential(
+            nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=2, padding=0, padding_mode='zeros'),
+            nn.ReLU(),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=2, padding=0, padding_mode='zeros'),
+            nn.ReLU()
+        )
+
+    def forward(self, inputs: Tensor) -> torch.tensor:
+        outputs = self.sequential(inputs)
+        return outputs
+
+    
 class Early_transformer(nn.Module):
 
     def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, n_decoder_layers, features_length, drop_prob, device):
@@ -36,6 +52,7 @@ class Early_transformer(nn.Module):
         self.n_enc_replay=n_enc_replay
         self.device = device
         self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
+        self.conv2_subsample = Conv2dSubampling(in_channels=features_length, out_channels=d_model)
         self.positional_encoder_1 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
         self.positional_encoder_2 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)        
         self.emb = nn.Embedding(dec_voc_size, d_model)
@@ -60,37 +77,6 @@ class Early_transformer(nn.Module):
                             batch_first= "True",
                             norm_first = "True"),
                             n_decoder_layers, self.layer_norm) for _ in range(self.n_enc_replay)])
-    '''
-    def _encoder_(self, src: Tensor) -> Tensor:
-        src = self.conv_subsample(src)
-        src = self.positional_encoder_1(src.permute(0,2,1))
-        src_pad_mask = None
-        enc_out=self.encoder(src, src_pad_mask)
-        return enc_out        
-
-    def ctc_encoder(self, src: Tensor) -> Tensor:
-        src = self.conv_subsample(src)
-        src = self.positional_encoder_1(src.permute(0,2,1))
-        src_pad_mask = None
-        enc_out=self.encoder(src, src_pad_mask)
-        enc_out = self.linear_1(enc_out) 
-        enc_out = torch.nn.functional.log_softmax(enc_out,dim=2)
-        return enc_out        
-
-    def _decoder_(self, trg: Tensor, enc: Tensor, src_trg_mask: Optional[Tensor] = None) -> Tensor:
-
-        tgt_mask = self.create_tgt_mask(trg.size(1)).to(self.device)        
-        tgt_key_padding_mask = self.create_pad_mask(trg, self.trg_pad_idx).to(self.device)
-
-        trg=self.emb(trg)
-        trg=self.positional_encoder_2(trg)
-
-        output=self.decoder(trg,enc,tgt_mask=tgt_mask,tgt_key_padding_mask=tgt_key_padding_mask)
-        output = self.linear_2(output)        
-        output = torch.nn.functional.log_softmax(output,dim=2)
-
-        return output
-    '''
     
     def forward(self, src, trg):
 
@@ -174,4 +160,71 @@ class Early_encoder(nn.Module):
         enc_out=torch.cat(enc_out)
         
         return enc_out
-    
+
+class Early_conformer(nn.Module):
+
+    def __init__(self, src_pad_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers,  features_length, drop_prob, depthwise_kernel_size, device):
+        super().__init__()
+        self.input_dim=d_model
+        self.num_heads=n_head
+        self.ffn_dim=dim_feed_forward
+        self.num_layers=n_encoder_layers
+        self.depthwise_conv_kernel_size=depthwise_kernel_size
+        self.n_enc_replay=n_enc_replay
+        self.dropout=drop_prob
+        self.device=device
+        
+        self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
+        self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
+        self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
+        self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_replay)])
+
+    def forward(self, src, lengths):
+
+        #convolution
+        src = self.conv_subsample(src)
+        src = self.positional_encoder(src.permute(0,2,1))
+
+        length=torch.clamp(lengths/4,max=src.size(1)).to(torch.int).to(self.device)
+        enc_out= []
+        enc=src
+        for linear, layer  in zip(self.linears, self.conformer):
+            enc, _ = layer(enc, length)
+            #for ctc loss
+            out = linear(enc) 
+            out = torch.nn.functional.log_softmax(out,dim=2)
+            enc_out += [out.unsqueeze(0)]#output.append(out.unsqueeze(0))
+        enc_out=torch.cat(enc_out)
+        
+        return enc_out
+        
+class my_conformer(nn.Module):
+
+    def __init__(self, src_pad_idx, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers,  features_length, drop_prob, depthwise_kernel_size, device):
+        super().__init__()
+        self.input_dim=d_model
+        self.num_heads=n_head
+        self.ffn_dim=dim_feed_forward
+        self.num_layers=n_encoder_layers
+        self.depthwise_conv_kernel_size=depthwise_kernel_size
+        self.dropout=drop_prob
+        self.device=device
+        
+        self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
+        self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
+        self.linear=nn.Linear(d_model, dec_voc_size)
+        self.conformer=Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout)
+
+    def forward(self, src):
+
+        #convolution
+        src = self.conv_subsample(src)
+        src = self.positional_encoder(src.permute(0,2,1))
+        length = torch.full(size=(src.size(0),), fill_value = src.size(1), dtype=torch.long).to(self.device)
+
+        enc, _ = self.conformer(src, length)
+        out = self.linear(enc) 
+        out = torch.nn.functional.log_softmax(out,dim=2)
+
+        return out.unsqueeze(0)
+        
