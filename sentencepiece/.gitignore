@@ -5,11 +5,7 @@ Makefile.in
 /py-compile
 /test-driver
 /ylwrap
-<<<<<<< HEAD
 /build
-=======
-# /build
->>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 
 /autom4te.cache
 /autoscan.log
