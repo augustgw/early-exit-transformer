@@ -171,13 +171,21 @@ def collate_infer_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_to
     for waveform, _, label, *_, ut_id in batch:
         spec=spec_transform(waveform)#.to(device)
         spec = melspec_transform(spec).to(device)
+<<<<<<< HEAD
         t_source += [spec.size(2)]
         '''
+=======
+        
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
         npads = 1000
         if spec.size(2)>1000:
             npads = 500
         spec = F.pad(spec, (0,npads), mode='constant',value=0)
+<<<<<<< HEAD
         '''
+=======
+        
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
         tensors += spec
         del spec
         if bpe_flag == True:

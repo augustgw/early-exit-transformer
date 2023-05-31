@@ -23,6 +23,7 @@ WORD_SCORE = -0.26
 N_BEST = 1
 '''
 if bpe_flag== True:
+<<<<<<< HEAD
     decoder=[]
     for w_ins in [-1,-1,-1,-2,-2.3, -2.3]:
         decoder += [ctc_decoder(lexicon=lexicon,
@@ -35,6 +36,21 @@ if bpe_flag== True:
                                 blank_token="@",
                                 unk_word="<unk>",
                                 sil_token="<pad>" )]   
+=======
+    beam_search_decoder = ctc_decoder(
+        lexicon=lexicon,
+        tokens=tokens,
+        nbest=N_BEST,
+        log_add=True,
+        beam_size=150,
+        lm_weight=LM_WEIGHT,
+        word_score=WORD_SCORE,
+        lm="lm.bin",
+        blank_token="@",
+        unk_word="<unk>",
+        sil_token="<pad>"
+        )
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 else:
     beam_search_decoder = ctc_decoder(
         lexicon=lexicon,
@@ -50,6 +66,7 @@ else:
 
 
 
+<<<<<<< HEAD
 class GreedyCTCDecoder(torch.nn.Module):
     def __init__(self, blank=0):
         super().__init__()
@@ -68,7 +85,7 @@ class GreedyCTCDecoder(torch.nn.Module):
 
 greedy_decoder = GreedyCTCDecoder()                                                                                   
 
-
+=======
 def beam_predict(model, input_sequence, words=None, vocab_size = dec_voc_size, max_length=300, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token = trg_pad_idx, weight_ctc = 0.5):
 
     emission = model.ctc_encoder(input_sequence)
@@ -76,7 +93,15 @@ def beam_predict(model, input_sequence, words=None, vocab_size = dec_voc_size, m
     beam_search_result = beam_search_decoder(emission.cpu())
     beam_search_transcript = " ".join(beam_search_result[0][0].words).strip()
     return(beam_search_transcript)
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 
+
+def ctc_predict(emission):
+    beam_search_result = beam_search_decoder(emission.cpu())
+    beam_search_transcript = " ".join(beam_search_result[0][0].words).strip()
+    return(beam_search_transcript)
+
+<<<<<<< HEAD
 def ctc_predict(emission, index=5):
     beam_search_result = decoder[index](emission.cpu())
     beam_search_transcript = []
@@ -86,6 +111,8 @@ def ctc_predict(emission, index=5):
 
 
 
+=======
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 def get_trellis(emission, tokens, blank_id=0):
     
     num_frame = emission.size(0)

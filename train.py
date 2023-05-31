@@ -13,20 +13,36 @@ from torch.optim import Adam,AdamW
 
 import sys
 
+<<<<<<< HEAD
 from models.model.early_exit import Early_encoder, Early_transformer, Early_conformer, my_conformer
 
 from util.epoch_timer import epoch_time
 from util.data_loader import text_transform
 from data import *
 from util.beam_infer import ctc_predict, greedy_decoder
+=======
+from data import *
+from models.model.early_exit import Early_encoder, Early_transformer
+from util.bleu import idx_to_word, get_bleu
+from util.epoch_timer import epoch_time
+from util.data_loader import text_transform
+from util.beam_infer import ctc_predict
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 from conf import *
 from util.data_loader import collate_fn
 
+<<<<<<< HEAD
 torch.set_num_threads(10) 
 cuda = torch.cuda.is_available()
 device = torch.device('cuda' if cuda else 'cpu')
 
 
+=======
+
+cuda = torch.cuda.is_available()
+device = torch.device('cuda' if cuda else 'cpu')
+
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 class NoamOpt:
     "Optim wrapper that implements rate."
     def __init__(self, model_size, warmup, optimizer):
@@ -75,7 +91,25 @@ def count_parameters(model):
 def initialize_weights(m):
     if hasattr(m, 'weight') and m.weight.dim() > 1:
         nn.init.xavier_uniform_(m.weight.data)
+'''
+model = Early_transformer(src_pad_idx=src_pad_idx,
+                          trg_pad_idx=trg_pad_idx,
+                          trg_sos_idx=trg_sos_idx,
+                          n_enc_replay=n_enc_replay,
+                          enc_voc_size=enc_voc_size,
+                          dec_voc_size=dec_voc_size,
+                          d_model=d_model,                          
+                          max_len=max_len,
+                          dim_feed_forward=dim_feed_forward,
+                          n_head=n_heads,
+                          n_encoder_layers=n_encoder_layers,
+                          n_decoder_layers=n_decoder_layers,
+                          features_length=n_mels,
+                          drop_prob=drop_prob,
+                          device=device).to(device)
+'''
 
+<<<<<<< HEAD
 n_encoder_layers=2
 n_enc_replay=6
 model = Early_conformer(src_pad_idx=src_pad_idx,
@@ -91,6 +125,21 @@ model = Early_conformer(src_pad_idx=src_pad_idx,
                         drop_prob=drop_prob,
                         depthwise_kernel_size=depthwise_kernel_size,
                         device=device).to(device)    
+=======
+model = Early_encoder(src_pad_idx=src_pad_idx,
+                    n_enc_replay=n_enc_replay,
+                    d_model=d_model,
+                    enc_voc_size=enc_voc_size,
+                    dec_voc_size=dec_voc_size,
+                    max_len=max_len,
+                    dim_feed_forward=dim_feed_forward,
+                    n_head=n_heads,
+                    n_encoder_layers=n_encoder_layers,
+                    features_length=n_mels,
+                    drop_prob=drop_prob,
+                    device=device).to(device)
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
+
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
 #print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers," num_decoder_layers:", n_decoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)
@@ -114,11 +163,18 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
 loss_fn = nn.CrossEntropyLoss()
 ctc_loss = nn.CTCLoss(blank=0,zero_infinity=True)
 
+<<<<<<< HEAD
 optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps, weight_decay=weight_decay))
 
 #optimizer = NoamOpt(d_model, warmup, Adam(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps))
 
 
+=======
+#optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps, weight_decay=weight_decay))
+
+optimizer = NoamOpt(d_model, warmup, Adam(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps)) 
+flag_distill=True
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 def train(iterator):
     
     model.train()
@@ -131,18 +187,29 @@ def train(iterator):
         trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
         trg_expect =batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
         #print("INPUT:",text_transform.int_to_text(trg[0]))
+<<<<<<< HEAD
         valid_lengths=batch[3]
         encoder = model(src, valid_lengths)
         ctc_target_len=batch[2]
         loss_layer=0
         loss_distill = 0
 
+=======
+
+        encoder = model(src)
+        ctc_target_len=batch[2]
+        #print(output.size(), encoder.size())
+
+        loss_layer=0
+        loss_distill = 0
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
         if i % 300 ==0:
             if bpe_flag==True:
                 print("EXPECTED:",sp.decode(trg_expect[0].tolist()).lower())
             else:
                 print("EXPECTED:",text_transform.int_to_text(trg_expect[0]))
         
+<<<<<<< HEAD
         last_probs=encoder[encoder.size(0)-1].to(device)
         if flag_distill==True:
 
@@ -169,11 +236,24 @@ def train(iterator):
             if flag_distill==True:
                 #loss_distill += loss_fn(enc.permute(0,2,1),p_teacher.permute(0,2,1)).to(device)
                 loss_distill += ctc_loss(enc.permute(1,0,2),p_teacher,ctc_input_len,p_teacher_len).to(device)
+=======
+        last_probs=encoder[encoder.size(0)-1]
+        if flag_distill==True:
+            p_teacher = torch.exp(last_probs).detach()
+        ctc_input_len=torch.full(size=(encoder.size(1),), fill_value = encoder.size(2), dtype=torch.long)
+        for enc in  encoder[0:encoder.size(0)-1]:
+            #print(enc.size(),p_teacher.size())
+            #p_distill = p_teacher * enc #distill probs from last layer
+            loss_layer += ctc_loss(enc.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
+            if flag_distill==True:
+                loss_distill += loss_fn(enc.permute(0,2,1),p_teacher.permute(0,2,1)).to(device)
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
             if i % 300 ==0:
                 if bpe_flag==True:
                     print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
                 else:
                     print("CTC_OUT at [",i,"]:",ctc_predict(enc[0].unsqueeze(0)))
+<<<<<<< HEAD
         del encoder
         loss_layer += ctc_loss(last_probs.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
         if i % 300 ==0:
@@ -186,6 +266,18 @@ def train(iterator):
         if flag_distill==True:
             loss = loss_layer + loss_distill
             #loss = 0.7 * loss_layer + 0.3 * loss_distill            
+=======
+                    
+        loss_layer += ctc_loss(last_probs.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
+        if i % 300 ==0:
+            if bpe_flag==True:
+                print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
+            else:
+                print("CTC_OUT at [",i,"]:",ctc_predict(last_probs[0].unsqueeze(0)))
+        loss = loss_layer
+        if flag_distill==True:
+            loss = loss_layer + loss_distill
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
         model.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
@@ -201,7 +293,11 @@ def train(iterator):
     return epoch_loss / len(iterator)
 
 
+<<<<<<< HEAD
 '''
+=======
+
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
 def validate(model, iterator, criterion):
     model.eval()
     epoch_loss = 0
@@ -238,8 +334,13 @@ def validate(model, iterator, criterion):
 def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
+<<<<<<< HEAD
     nepoch = 150#-1
     moddir=os.getcwd()+'/trained_model/bpe_conformer_kd-1-1/'
+=======
+    nepoch = 96#-1
+    moddir=os.getcwd()+'/trained_model/bpe_distill/'
+>>>>>>> 421c99b58efda3528164ff61a24fa1e07ae93513
     os.makedirs(moddir, exist_ok=True)            
     initialize_model=False
     best_model=moddir+'{}mod{:03d}-transformer'.format('',nepoch)
