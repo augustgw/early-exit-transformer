@@ -1,0 +1,5 @@
+./src/spm_train --input=libri_transc.txt --model_prefix=libri.bpe-128 --vocab_size=128 --character_coverage=1.0 --model_type=bpe --pad_id=126 --unk_id=127 --bos_id=1 --eos_id=2 --user_defined_symbols="@"
+cat ../../librispeech.lex|awk '{print toupper($0)}'|tee x|./src/spm_encode --model libri.bpe-128.model|tee y;paste x y|awk '{print $0}'>librispeech-bpe-128.lex ;rm -f x y
+
+
+#definire in beam_search_decoder blank_token="@",  unk_word="<unk>", sil_token="<pad>",       

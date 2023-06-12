@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -Wall -fPIC  -rdynamic CMakeFiles/spm_normalize.dir/spm_normalize_main.cc.o -o spm_normalize  -Wl,-rpath,/falavi/slu/sentencepiece/build/src: libsentencepiece_train.so.0.0.0 libsentencepiece.so.0.0.0 -lpthread 
