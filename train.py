@@ -13,7 +13,7 @@ from torch.optim import Adam,AdamW
 
 import sys
 
-from models.model.early_exit import Early_encoder, Early_transformer, Early_conformer, my_conformer
+from models.model.early_exit import Early_Conformer, Early_LSTM_Conformer
 
 from util.epoch_timer import epoch_time
 from util.data_loader import text_transform
@@ -78,19 +78,21 @@ def initialize_weights(m):
 
 n_encoder_layers=2
 n_enc_replay=6
-model = Early_conformer(src_pad_idx=src_pad_idx,
-                        n_enc_replay=n_enc_replay,
-                        d_model=d_model,
-                        enc_voc_size=enc_voc_size,
-                        dec_voc_size=dec_voc_size,
-                        max_len=max_len,
-                        dim_feed_forward=dim_feed_forward,
-                        n_head=n_heads,
-                        n_encoder_layers=n_encoder_layers,
-                        features_length=n_mels,
-                        drop_prob=drop_prob,
-                        depthwise_kernel_size=depthwise_kernel_size,
-                        device=device).to(device)    
+model = Early_LSTM_Conformer(src_pad_idx=src_pad_idx,
+                            n_enc_replay=n_enc_replay,
+                            d_model=d_model,
+                            enc_voc_size=enc_voc_size,
+                            dec_voc_size=dec_voc_size,
+                            lstm_hidden_size=lstm_hidden_size,
+                            num_lstm_layers=num_lstm_layers,
+                            max_len=max_len,
+                            dim_feed_forward=dim_feed_forward,
+                            n_head=n_heads,
+                            n_encoder_layers=n_encoder_layers,
+                            features_length=n_mels,
+                            drop_prob=drop_prob,
+                            depthwise_kernel_size=depthwise_kernel_size,
+                            device=device).to(device)    
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
 #print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers," num_decoder_layers:", n_decoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)
@@ -120,7 +122,7 @@ optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(),lr=0, betas
 
 
 def train(iterator):
-    
+
     model.train()
     epoch_loss = 0
     for i, batch in enumerate(iterator):
@@ -190,7 +192,6 @@ def train(iterator):
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
-        
 
         epoch_loss += loss.item()
         if flag_distill==True:
@@ -239,7 +240,7 @@ def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
     nepoch = 150#-1
-    moddir=os.getcwd()+'/trained_model/bpe_conformer_kd-1-1/'
+    moddir=os.getcwd()+'/trained_model/test-lstm-1/'
     os.makedirs(moddir, exist_ok=True)            
     initialize_model=False
     best_model=moddir+'{}mod{:03d}-transformer'.format('',nepoch)
@@ -258,6 +259,7 @@ def run(total_epoch, best_loss):
             for k in range(0, 10):
                 print("initializing step:",k)
                 t_loss=train(data_loader_initial)
+                exit()
 
 
     for step in range(nepoch + 1, total_epoch):

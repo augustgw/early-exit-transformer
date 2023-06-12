@@ -28,6 +28,9 @@ drop_prob = 0.1
 depthwise_kernel_size=31
 max_utterance_length= 360 #max nummber of labels in training utterances
 
+lstm_hidden_size = 256
+num_lstm_layers = 1
+
 src_pad_idx=0
 trg_pad_idx=30
 trg_sos_idx=1
