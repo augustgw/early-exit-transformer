@@ -22,10 +22,13 @@ from util.beam_infer import ctc_predict, greedy_decoder
 from conf import *
 from util.data_loader import collate_fn
 
+# import wandb
+
 torch.set_num_threads(10) 
 cuda = torch.cuda.is_available()
 device = torch.device('cuda' if cuda else 'cpu')
 
+# wandb.init(project="lstm-conformer",config=args)
 
 class NoamOpt:
     "Optim wrapper that implements rate."
@@ -118,9 +121,6 @@ ctc_loss = nn.CTCLoss(blank=0,zero_infinity=True)
 
 optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps, weight_decay=weight_decay))
 
-#optimizer = NoamOpt(d_model, warmup, Adam(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps))
-
-
 def train(iterator):
 
     model.train()
@@ -193,6 +193,9 @@ def train(iterator):
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
 
+        # if i % args["log_interval"] == 0:
+        #     wandb.log({"loss": loss})
+
         epoch_loss += loss.item()
         if flag_distill==True:
             print('step :', round((i / len(iterator)) * 100, 2), '% , loss_layer :', loss_layer.item(), '% , loss_distill :', loss_distill.item(), '% , loss :', loss.item())        
@@ -240,7 +243,7 @@ def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
     nepoch = 150#-1
-    moddir=os.getcwd()+'/trained_model/test-lstm-1/'
+    moddir=os.getcwd()+'/trained_model/bi-lstm/'
     os.makedirs(moddir, exist_ok=True)            
     initialize_model=False
     best_model=moddir+'{}mod{:03d}-transformer'.format('',nepoch)
@@ -261,13 +264,13 @@ def run(total_epoch, best_loss):
                 t_loss=train(data_loader_initial)
                 exit()
 
-
+    # wandb.watch(model, log_freq=args["log_interval"])
     for step in range(nepoch + 1, total_epoch):
         start_time = time.time()
         #for data in data_loader:
         #    print(data[1])
         #sys.exit()
-            
+
         total_loss = train(data_loader)
 
         print("TOTAL_LOSS-",step,":=",total_loss)

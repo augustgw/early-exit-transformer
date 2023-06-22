@@ -16,7 +16,7 @@ num_workers=1#0
 shuffle=True
 
 # model parameter setting
-batch_size = 48
+batch_size = 24
 max_len = 2000
 d_model = 256
 n_encoder_layers=2
@@ -72,3 +72,21 @@ clip = 1.0
 weight_decay = 5e-4
 #weight_decay = 0.1 # pytorch transformer class 
 inf = float('inf')
+
+args = {"src_pad_idx":src_pad_idx,
+        "n_enc_replay":n_enc_replay,
+        "d_model":d_model,
+        "enc_voc_size":enc_voc_size,
+        "dec_voc_size":dec_voc_size,
+        "lstm_hidden_size":lstm_hidden_size,
+        "num_lstm_layers":num_lstm_layers,
+        "max_len":max_len,
+        "dim_feed_forward":dim_feed_forward,
+        "n_head":n_heads,
+        "n_encoder_layers":n_encoder_layers,
+        "features_length":n_mels,
+        "drop_prob":drop_prob,
+        "depthwise_kernel_size":depthwise_kernel_size,
+        "device":device,
+        "log_interval":100,
+}
