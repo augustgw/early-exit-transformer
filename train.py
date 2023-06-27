@@ -242,7 +242,7 @@ def validate(model, iterator, criterion):
 def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
-    nepoch = 150#-1
+    nepoch = 284#-1
     moddir=os.getcwd()+'/trained_model/bi-lstm/'
     os.makedirs(moddir, exist_ok=True)            
     initialize_model=False

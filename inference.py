@@ -91,15 +91,17 @@ def evaluate(model):
         test_dataset = torchaudio.datasets.LIBRISPEECH("/workspace", url=set_, download=False)
         data_loader = torch.utils.data.DataLoader(test_dataset, pin_memory=False, batch_size=batch_size, num_workers=0, shuffle=False, collate_fn=collate_infer_fn)
 
-        with open(outpath + set_ + '.txt', 'w') as outfile:
+        with open(outpath + set_ + '.txt', 'w') as ofile:
+            preds = [[], [], [], [], [], []]
+
             for batch in data_loader: 
                 trg_expect =batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
                 trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
-                for trg_expect_ in trg_expect:
-                    if bpe_flag == True:
-                        outfile.write(set_ + " EXPECTED: " + sp.decode(trg_expect_.squeeze(0).tolist()).lower() + '\n')
-                    else:                    
-                        outfile.write(set_ + " EXPECTED: " + re.sub(r"[#^$]+","",text_transform.int_to_text(trg_expect_.squeeze(0))) + '\n')
+                # for trg_expect_ in trg_expect:
+                #     if bpe_flag == True:
+                #         outfile.write(set_ + " EXPECTED: " + sp.decode(trg_expect_.squeeze(0).tolist()).lower() + '\n')
+                #     else:                    
+                #         outfile.write(set_ + " EXPECTED: " + re.sub(r"[#^$]+","",text_transform.int_to_text(trg_expect_.squeeze(0))) + '\n')
                 valid_lengths=batch[2]
 
                 encoder=model(batch[0].to(device), valid_lengths)
@@ -110,12 +112,19 @@ def evaluate(model):
                     best_combined = ctc_predict(enc, i - 1)
                     for best_ in best_combined:
                         if bpe_flag==True:
-                            # print(set_," BEAM_OUT_",i,":",  apply_lex(sp.decode(best_).lower(),words))
-                            outfile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(sp.decode(best_).lower(),words) + '\n')
+                            preds[i-1].append(apply_lex(sp.decode(best_).lower(),words) + '\n')
+                            ofile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(sp.decode(best_).lower(),words) + '\n')
                         else:
-                            outfile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(re.sub(r"[#^$]+","",best_.lower()),words) + '\n')  
+                            preds[i-1].append(apply_lex(re.sub(r"[#^$]+","",best_.lower()),words) + '\n')
+                            ofile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(re.sub(r"[#^$]+","",best_.lower()),words) + '\n')  
 
                 print('Batch complete')  
+
+        for i in range(6):
+            outfile_name = outpath + set_ + '/layer' + str((i+1)*2) + '.txt'
+            os.makedirs(os.path.dirname(outfile_name), exist_ok=True)    
+            with open(outfile_name, 'w') as outfile: 
+                outfile.writelines(preds[i])
                           
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn') 
