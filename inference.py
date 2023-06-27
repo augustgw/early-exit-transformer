@@ -85,7 +85,7 @@ def evaluate(model):
 
     beam_size=10
     batch_size=1
-    for set_ in ("test-clean","test-other","dev-clean","dev-other"):
+    for set_ in ["test-clean"]: #["test-clean","test-other","dev-clean","dev-other"]:
         print(set_)
         
         test_dataset = torchaudio.datasets.LIBRISPEECH("/workspace", url=set_, download=False)
