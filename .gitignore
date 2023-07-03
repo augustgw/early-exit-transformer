@@ -2,5 +2,8 @@ __pycache__/
 util/__pycache__/
 models/model/__pycache__/
 wandb/
+image/
+paper/
+sentencepiece/
 
 trained_model/

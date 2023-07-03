@@ -1,0 +1,120 @@
+bi-lstm_298_301
+
+--------------------------------
+
+dev-clean
+
+layer2
+number of sentences: 2703
+substitutions=7606 deletions=1312 insertions=1062 hits=45484
+
+layer4
+number of sentences: 2703
+substitutions=4538 deletions=515 insertions=583 hits=49349
+
+layer6
+number of sentences: 2703
+substitutions=3092 deletions=325 insertions=439 hits=50985
+
+layer8
+number of sentences: 2703
+substitutions=2505 deletions=303 insertions=312 hits=51594
+
+layer10
+number of sentences: 2703
+substitutions=2248 deletions=296 insertions=269 hits=51858
+
+layer12
+number of sentences: 2703
+substitutions=2141 deletions=256 insertions=298 hits=52005
+
+
+--------------------------------
+
+dev-other
+
+layer2
+number of sentences: 2864
+substitutions=13739 deletions=2702 insertions=1661 hits=34507
+
+layer4
+number of sentences: 2864
+substitutions=9470 deletions=1226 insertions=1308 hits=40252
+
+layer6
+number of sentences: 2864
+substitutions=7482 deletions=855 insertions=1049 hits=42611
+
+layer8
+number of sentences: 2864
+substitutions=6458 deletions=874 insertions=733 hits=43616
+
+layer10
+number of sentences: 2864
+substitutions=5920 deletions=793 insertions=731 hits=44235
+
+layer12
+number of sentences: 2864
+substitutions=5628 deletions=712 insertions=755 hits=44608
+
+
+--------------------------------
+
+test-clean
+
+layer2
+number of sentences: 2620
+substitutions=7213 deletions=1234 insertions=962 hits=44129
+
+layer4
+number of sentences: 2620
+substitutions=4320 deletions=480 insertions=521 hits=47776
+
+layer6
+number of sentences: 2620
+substitutions=3147 deletions=306 insertions=397 hits=49123
+
+layer8
+number of sentences: 2620
+substitutions=2461 deletions=304 insertions=296 hits=49811
+
+layer10
+number of sentences: 2620
+substitutions=2242 deletions=262 insertions=294 hits=50072
+
+layer12
+number of sentences: 2620
+substitutions=2105 deletions=248 insertions=313 hits=50223
+
+
+--------------------------------
+
+test-other
+
+layer2
+number of sentences: 2939
+substitutions=14613 deletions=3004 insertions=1707 hits=34726
+
+layer4
+number of sentences: 2939
+substitutions=10042 deletions=1428 insertions=1377 hits=40873
+
+layer6
+number of sentences: 2939
+substitutions=8145 deletions=931 insertions=1191 hits=43267
+
+layer8
+number of sentences: 2939
+substitutions=6867 deletions=994 insertions=840 hits=44482
+
+layer10
+number of sentences: 2939
+substitutions=6351 deletions=874 insertions=796 hits=45118
+
+layer12
+number of sentences: 2939
+substitutions=6155 deletions=790 insertions=818 hits=45398
+
+
+--------------------------------
+

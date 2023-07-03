@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -Wall -fPIC  -rdynamic CMakeFiles/spm_encode.dir/spm_encode_main.cc.o -o spm_encode  -Wl,-rpath,/falavi/slu/sentencepiece/build/src: libsentencepiece.so.0.0.0 -lpthread 
