@@ -1,0 +1,7 @@
+non-ee-linear-6layer-LibriSpeech100_47_49
+
+dev-clean
+dev-other
+test-clean
+layer2: 0.19130401704199634
+test-other

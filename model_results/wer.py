@@ -15,10 +15,13 @@ with open(args.model_dir + '/wer_results.txt', 'w') as outfile:
         with open(test_set + '_expected.txt', 'r') as expected_file:
             expected = expected_file.readlines()
 
-            for layer in ('layer2', 'layer4', 'layer6', 'layer8', 'layer10', 'layer12'):
-                with open(args.model_dir + '/' + test_set + '/' + layer + '.txt', 'r') as hypotheses_file:
-                    hypotheses = hypotheses_file.readlines()
-                    outfile.write(layer + ': ' + str(wer(expected, hypotheses)) + '\n')
+            try:
+                for layer in ('layer2', 'layer4', 'layer6', 'layer8', 'layer10', 'layer12'):
+                    with open(args.model_dir + '/' + test_set + '/' + layer + '.txt', 'r') as hypotheses_file:
+                        hypotheses = hypotheses_file.readlines()
+                        outfile.write(layer + ': ' + str(wer(expected, hypotheses)) + '\n')
+            except:
+                continue
         
         outfile.write('\n')
 

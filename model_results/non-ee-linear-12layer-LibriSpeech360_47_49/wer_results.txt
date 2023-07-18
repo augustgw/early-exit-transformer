@@ -1,0 +1,7 @@
+non-ee-linear-12layer-LibriSpeech360_47_49
+
+dev-clean
+dev-other
+test-clean
+layer2: 0.10221393791844187
+test-other

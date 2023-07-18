@@ -1,0 +1,7 @@
+non-ee-lstm-12layer-LibriSpeech360_47_49
+
+dev-clean
+dev-other
+test-clean
+layer2: 0.11278910529519172
+test-other

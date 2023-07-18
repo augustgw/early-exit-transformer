@@ -1,0 +1,7 @@
+non-ee-lstm-6layer-LibriSpeech100_47_49
+
+dev-clean
+dev-other
+test-clean
+layer2: 0.20410453438831405
+test-other

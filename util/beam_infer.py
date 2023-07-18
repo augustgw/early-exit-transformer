@@ -7,7 +7,6 @@ from torchaudio.models.decoder import ctc_decoder
 import sys
 import re
 import os
-from models.model.early_exit import Early_encoder
 #from inference import model
 from util.data_loader import text_transform
 

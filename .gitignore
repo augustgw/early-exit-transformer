@@ -4,6 +4,7 @@ models/model/__pycache__/
 wandb/
 image/
 paper/
-sentencepiece/
 
 trained_model/
+
+train_old.py

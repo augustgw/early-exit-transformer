@@ -15,49 +15,55 @@ from torchaudio.models.decoder import ctc_decoder
 import sys
 import re
 
-from models.model.early_exit import Early_LSTM_Conformer
+from models.model.early_exit import Early_Conformer, Early_LSTM_Conformer
 
 from util.epoch_timer import epoch_time
-from util.data_loader import text_transform
+from util.data_loader import text_transform, collate_infer_fn
 from util.tokenizer import *
 from util.beam_infer import *
 
 from conf import *
 
-from util.data_loader import collate_infer_fn
+parser = argparse.ArgumentParser()
+parser.add_argument("model_name", type=str, help="Name of model dir in model_results (e.g., 'bi-lstm')")
+parser.add_argument("model_type", type = str, help = "Type of model to train ('Early_Conformer' or 'Early_LSTM_Conformer')")
+parser.add_argument("avg_model_start", type=int, help="Start of range for averaging models")
+parser.add_argument("avg_model_end", type=int, help="End of range for averaging models")
+args = parser.parse_args()
 
+if (args.model_type == 'Early_Conformer'):
+    model = Early_Conformer(src_pad_idx = src_pad_idx,
+                                n_enc_replay = n_enc_replay,
+                                d_model = d_model,
+                                enc_voc_size = enc_voc_size,
+                                dec_voc_size = dec_voc_size,
+                                max_len = max_len,
+                                dim_feed_forward = dim_feed_forward,
+                                n_head = n_heads,
+                                n_encoder_layers = n_encoder_layers,
+                                features_length = n_mels,
+                                drop_prob = drop_prob,
+                                depthwise_kernel_size = depthwise_kernel_size,
+                                device = device).to(device)  
+elif (args.model_type == 'Early_LSTM_Conformer'):
+    model = Early_LSTM_Conformer(src_pad_idx = src_pad_idx,
+                                n_enc_replay = n_enc_replay,
+                                d_model = d_model,
+                                enc_voc_size = enc_voc_size,
+                                dec_voc_size = dec_voc_size,
+                                lstm_hidden_size = lstm_hidden_size,
+                                num_lstm_layers = num_lstm_layers,
+                                max_len = max_len,
+                                dim_feed_forward = dim_feed_forward,
+                                n_head = n_heads,
+                                n_encoder_layers = n_encoder_layers,
+                                features_length = n_mels,
+                                drop_prob = drop_prob,
+                                depthwise_kernel_size = depthwise_kernel_size,
+                                device = device).to(device)                                                                                                                                                               
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-'''
-model = Early_encoder(src_pad_idx=src_pad_idx,
-            n_enc_replay=n_enc_replay,
-            d_model=d_model,
-            enc_voc_size=enc_voc_size,
-            dec_voc_size=dec_voc_size,
-            max_len=max_len,
-            dim_feed_forward=dim_feed_forward,
-            n_head=n_heads,
-            n_encoder_layers=n_encoder_layers,
-            features_length=n_mels,
-            drop_prob=drop_prob,
-            device=device).to(device)
-'''
-model = Early_LSTM_Conformer(src_pad_idx=src_pad_idx,
-                            n_enc_replay=n_enc_replay,
-                            d_model=d_model,
-                            enc_voc_size=enc_voc_size,
-                            dec_voc_size=dec_voc_size,
-                            lstm_hidden_size=lstm_hidden_size,
-                            num_lstm_layers=num_lstm_layers,
-                            max_len=max_len,
-                            dim_feed_forward=dim_feed_forward,
-                            n_head=n_heads,
-                            n_encoder_layers=n_encoder_layers,
-                            features_length=n_mels,
-                            drop_prob=drop_prob,
-                            depthwise_kernel_size=depthwise_kernel_size,
-                            device=device).to(device)                                                                                                                                                              
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
 print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers,"vocab_size:",dec_voc_size,"DEVICE:",device) 
@@ -79,12 +85,13 @@ def evaluate(model):
     avg_model_start = args.avg_model_start
     avg_model_end = args.avg_model_end
 
-    model = avg_models(model, path, avg_model_start, avg_model_end)        
+    model = avg_models(model, path, avg_model_start, avg_model_end) 
+
     model.eval()
     #w_ctc = float(sys.argv[1])
 
     beam_size=10
-    batch_size=1
+    batch_size=25
     for set_ in ["test-clean"]: #["test-clean","test-other","dev-clean","dev-other"]:
         print(set_)
         
@@ -106,9 +113,9 @@ def evaluate(model):
 
                 encoder=model(batch[0].to(device), valid_lengths)
                 i=0
-
+                
                 for enc in encoder:
-                    i=i+1
+                    i = i + 1
                     best_combined = ctc_predict(enc, i - 1)
                     for best_ in best_combined:
                         if bpe_flag==True:
@@ -128,9 +135,4 @@ def evaluate(model):
                           
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn') 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("model_name", type=str, help="Name of model dir in model_results (e.g., 'bi-lstm')")
-    parser.add_argument("avg_model_start", type=int, help="Start of range for averaging models")
-    parser.add_argument("avg_model_end", type=int, help="End of range for averaging models")
-    args = parser.parse_args()
     evaluate(model)
