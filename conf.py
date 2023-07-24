@@ -16,8 +16,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_workers = 1 #0
 shuffle = True
  
-# Model parameter settings
-batch_size = 24
+# General model parameters
+batch_size = 12
 max_len = 2000
 d_model = 256
 n_encoder_layers = 12
@@ -27,8 +27,9 @@ n_enc_replay = 1
 dim_feed_forward = 2048
 drop_prob = 0.1
 depthwise_kernel_size = 31
-max_utterance_length= 360 #max nummber of labels in training utterances
+max_utterance_length= 360 # Max number of labels in training utterances
 
+# LSTM decoder parameters
 lstm_hidden_size = 256
 num_lstm_layers = 1
 
@@ -56,22 +57,22 @@ if bpe_flag == True:
 
 sample_rate = 16000
 n_fft = 512
-win_length = 320 #20ms
-hop_length = 160 #10ms
+win_length = 320 # 20ms
+hop_length = 160 # 10ms
 n_mels = 80
 n_mfcc = 80
 
 
-# optimizer parameter setting
+# Optimizer parameters
 init_lr = 1e-5
 factor = 0.9
-adam_eps = 1e-9#5e-9
+adam_eps = 1e-9 # 5e-9
 patience = 10
-warmup = 8000 #dataloader.size()
+warmup = 8000 # dataloader.size()
 epoch = 50
 clip = 1.0
 weight_decay = 5e-4
-#weight_decay = 0.1 # pytorch transformer class 
+#weight_decay = 0.1 # PyTorch Transformer class 
 inf = float('inf')
 
 # W&B args

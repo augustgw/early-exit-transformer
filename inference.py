@@ -15,7 +15,7 @@ from torchaudio.models.decoder import ctc_decoder
 import sys
 import re
 
-from models.model.early_exit import Early_Conformer, Early_LSTM_Conformer
+from models.model.early_exit import *
 
 from util.epoch_timer import epoch_time
 from util.data_loader import text_transform, collate_infer_fn
@@ -60,7 +60,23 @@ elif (args.model_type == 'Early_LSTM_Conformer'):
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
-                                device = device).to(device)                                                                                                                                                               
+                                device = device).to(device)  
+elif(args.model_type == 'Early_Sequence_Conformer'):
+    model = Early_Sequence_Conformer(src_pad_idx = src_pad_idx,
+                                n_enc_replay = n_enc_replay,
+                                trg_pad_idx = trg_pad_idx,
+                                d_model = d_model,
+                                enc_voc_size = enc_voc_size,
+                                dec_voc_size = dec_voc_size,
+                                max_len = max_len,
+                                dim_feed_forward = dim_feed_forward,
+                                n_head = n_heads,
+                                n_encoder_layers = n_encoder_layers,
+                                n_decoder_layers = n_decoder_layers,
+                                features_length = n_mels,
+                                drop_prob = drop_prob,
+                                depthwise_kernel_size = depthwise_kernel_size,
+                                device = device).to(device)                                                                                                                                                             
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
