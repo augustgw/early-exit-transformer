@@ -17,13 +17,13 @@ num_workers = 1 #0
 shuffle = True
  
 # General model parameters
-batch_size = 12
+batch_size = 8
 max_len = 2000
 d_model = 256
-n_encoder_layers = 12
-n_decoder_layers = 6
-n_heads = 8
-n_enc_replay = 1
+num_encoder_layers = 12
+num_decoder_layers = 3
+num_heads = 8
+num_enc_replay = 2
 dim_feed_forward = 2048
 drop_prob = 0.1
 depthwise_kernel_size = 31
@@ -32,6 +32,9 @@ max_utterance_length= 360 # Max number of labels in training utterances
 # LSTM decoder parameters
 lstm_hidden_size = 256
 num_lstm_layers = 1
+
+# Sequence decoder parameters
+num_tf_decoder_layers = 3
 
 src_pad_idx = 0
 trg_pad_idx = 30
@@ -64,7 +67,7 @@ n_mfcc = 80
 
 
 # Optimizer parameters
-init_lr = 1e-5
+init_lr = 1e-6 # 1e-5
 factor = 0.9
 adam_eps = 1e-9 # 5e-9
 patience = 10
@@ -77,7 +80,7 @@ inf = float('inf')
 
 # W&B args
 # args = {"src_pad_idx":src_pad_idx,
-#         "n_enc_replay":n_enc_replay,
+#         "num_dec_replay":num_dec_replay,
 #         "d_model":d_model,
 #         "enc_voc_size":enc_voc_size,
 #         "dec_voc_size":dec_voc_size,
@@ -85,8 +88,8 @@ inf = float('inf')
 #         "num_lstm_layers":num_lstm_layers,
 #         "max_len":max_len,
 #         "dim_feed_forward":dim_feed_forward,
-#         "n_head":n_heads,
-#         "n_encoder_layers":n_encoder_layers,
+#         "num_heads":num_heads,
+#         "num_decoder_layers":num_decoder_layers,
 #         "features_length":n_mels,
 #         "drop_prob":drop_prob,
 #         "depthwise_kernel_size":depthwise_kernel_size,

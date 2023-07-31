@@ -85,21 +85,21 @@ def initialize_weights(m):
 
 if (args.model_type == 'Early_Conformer'):
     model = Early_Conformer(src_pad_idx = src_pad_idx,
-                                n_enc_replay = n_enc_replay,
+                                num_enc_replay = num_enc_replay,
                                 d_model = d_model,
                                 enc_voc_size = enc_voc_size,
                                 dec_voc_size = dec_voc_size,
                                 max_len = max_len,
                                 dim_feed_forward = dim_feed_forward,
-                                n_head = n_heads,
-                                n_encoder_layers = n_encoder_layers,
+                                num_heads = num_heads,
+                                num_encoder_layers = num_encoder_layers,
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
                                 device = device).to(device)  
 elif (args.model_type == 'Early_LSTM_Conformer'):
     model = Early_LSTM_Conformer(src_pad_idx = src_pad_idx,
-                                n_enc_replay = n_enc_replay,
+                                num_enc_replay = num_enc_replay,
                                 d_model = d_model,
                                 enc_voc_size = enc_voc_size,
                                 dec_voc_size = dec_voc_size,
@@ -107,24 +107,25 @@ elif (args.model_type == 'Early_LSTM_Conformer'):
                                 num_lstm_layers = num_lstm_layers,
                                 max_len = max_len,
                                 dim_feed_forward = dim_feed_forward,
-                                n_head = n_heads,
-                                n_encoder_layers = n_encoder_layers,
+                                num_heads = num_heads,
+                                num_encoder_layers = num_encoder_layers,
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
                                 device = device).to(device)  
 elif(args.model_type == 'Early_Sequence_Conformer'):
     model = Early_Sequence_Conformer(src_pad_idx = src_pad_idx,
-                                n_enc_replay = n_enc_replay,
+                                num_enc_replay = num_enc_replay,
                                 trg_pad_idx = trg_pad_idx,
                                 d_model = d_model,
                                 enc_voc_size = enc_voc_size,
                                 dec_voc_size = dec_voc_size,
                                 max_len = max_len,
                                 dim_feed_forward = dim_feed_forward,
-                                n_head = n_heads,
-                                n_encoder_layers = n_encoder_layers,
-                                n_decoder_layers = n_decoder_layers,
+                                num_heads = num_heads,
+                                num_encoder_layers = num_encoder_layers,
+                                num_decoder_layers = num_decoder_layers,
+                                num_tf_decoder_layers = num_tf_decoder_layers,
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
@@ -132,7 +133,7 @@ elif(args.model_type == 'Early_Sequence_Conformer'):
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
 warmup = len(data_loader)
-print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device) 
+print("batch_size:",batch_size," num_heads:",num_heads," num_encoder_layers:", num_encoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device) 
 
 model.apply(initialize_weights)
 
@@ -183,19 +184,19 @@ def train(iterator):
         ctc_input_len = torch.full(size = (encoder.size(1),), fill_value = encoder.size(2), dtype = torch.long)
         #print(encoder.size(), ctc_input_len)
 
-        # for enc in encoder[0:encoder.size(0) - 1]:
-        #     #print(enc.size(), last_probs.size())
-        #     #p_distill = p_teacher * enc #distill probs from last layer
-        #     loss_layer += ctc_loss(enc.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
-        #     if flag_distill == True:
-        #         #loss_distill += loss_fn(enc.permute(0,2,1), p_teacher.permute(0,2,1)).to(device)
-        #         loss_distill += ctc_loss(enc.permute(1,0,2), p_teacher, ctc_input_len, p_teacher_len).to(device)
-        #     if i % 300 == 0:
-        #         if bpe_flag == True:
-        #             print("CTC_OUT at [",i,"]:", sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
-        #         else:
-        #             print("CTC_OUT at [",i,"]:", ctc_predict(enc[0].unsqueeze(0)))
-        # del encoder
+        for enc in encoder[0:encoder.size(0) - 1]:
+            #print(enc.size(), last_probs.size())
+            #p_distill = p_teacher * enc #distill probs from last layer
+            loss_layer += ctc_loss(enc.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
+            if flag_distill == True:
+                #loss_distill += loss_fn(enc.permute(0,2,1), p_teacher.permute(0,2,1)).to(device)
+                loss_distill += ctc_loss(enc.permute(1,0,2), p_teacher, ctc_input_len, p_teacher_len).to(device)
+            if i % 300 == 0:
+                if bpe_flag == True:
+                    print("CTC_OUT at [",i,"]:", sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
+                else:
+                    print("CTC_OUT at [",i,"]:", ctc_predict(enc[0].unsqueeze(0)))
+        del encoder
 
         loss_layer += ctc_loss(last_probs.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
         if i % 300 == 0:

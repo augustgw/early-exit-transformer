@@ -33,21 +33,21 @@ args = parser.parse_args()
 
 if (args.model_type == 'Early_Conformer'):
     model = Early_Conformer(src_pad_idx = src_pad_idx,
-                                n_enc_replay = n_enc_replay,
+                                num_enc_replay = num_enc_replay,
                                 d_model = d_model,
                                 enc_voc_size = enc_voc_size,
                                 dec_voc_size = dec_voc_size,
                                 max_len = max_len,
                                 dim_feed_forward = dim_feed_forward,
-                                n_head = n_heads,
-                                n_encoder_layers = n_encoder_layers,
+                                num_head = num_heads,
+                                num_encoder_layers = num_encoder_layers,
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
                                 device = device).to(device)  
 elif (args.model_type == 'Early_LSTM_Conformer'):
     model = Early_LSTM_Conformer(src_pad_idx = src_pad_idx,
-                                n_enc_replay = n_enc_replay,
+                                num_enc_replay = num_enc_replay,
                                 d_model = d_model,
                                 enc_voc_size = enc_voc_size,
                                 dec_voc_size = dec_voc_size,
@@ -55,34 +55,36 @@ elif (args.model_type == 'Early_LSTM_Conformer'):
                                 num_lstm_layers = num_lstm_layers,
                                 max_len = max_len,
                                 dim_feed_forward = dim_feed_forward,
-                                n_head = n_heads,
-                                n_encoder_layers = n_encoder_layers,
+                                num_head = num_heads,
+                                num_encoder_layers = num_encoder_layers,
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
                                 device = device).to(device)  
 elif(args.model_type == 'Early_Sequence_Conformer'):
-    model = Early_Sequence_Conformer(src_pad_idx = src_pad_idx,
-                                n_enc_replay = n_enc_replay,
+   model = Early_Sequence_Conformer(src_pad_idx = src_pad_idx,
+                                num_enc_replay = num_enc_replay,
                                 trg_pad_idx = trg_pad_idx,
                                 d_model = d_model,
                                 enc_voc_size = enc_voc_size,
                                 dec_voc_size = dec_voc_size,
                                 max_len = max_len,
                                 dim_feed_forward = dim_feed_forward,
-                                n_head = n_heads,
-                                n_encoder_layers = n_encoder_layers,
-                                n_decoder_layers = n_decoder_layers,
+                                num_heads = num_heads,
+                                num_encoder_layers = num_encoder_layers,
+                                num_decoder_layers = num_decoder_layers,
+                                num_tf_decoder_layers = num_tf_decoder_layers,
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
-                                device = device).to(device)                                                                                                                                                             
+                                device = device).to(device)                                                                                                                                                              
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
-print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers,"vocab_size:",dec_voc_size,"DEVICE:",device) 
+print("batch_size:",batch_size," num_heads:",num_heads," num_encoder_layers:", num_encoder_layers,"vocab_size:",dec_voc_size,"DEVICE:",device) 
+batch_size = batch_size
 
 loss_fn = nn.CrossEntropyLoss()
 ctc_loss = nn.CTCLoss(blank=0,zero_infinity=True)
@@ -106,8 +108,8 @@ def evaluate(model):
     model.eval()
     #w_ctc = float(sys.argv[1])
 
-    beam_size=10
-    batch_size=25
+    beam_size = 10
+
     for set_ in ["test-clean"]: #["test-clean","test-other","dev-clean","dev-other"]:
         print(set_)
         

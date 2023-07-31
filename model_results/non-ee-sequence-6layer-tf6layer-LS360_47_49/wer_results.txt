@@ -1,0 +1,7 @@
+non-ee-sequence-12layer-LS360_47_49/
+
+dev-clean
+dev-other
+test-clean
+layer2: 0.09911366402921486
+test-other
