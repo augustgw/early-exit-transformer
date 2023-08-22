@@ -120,28 +120,31 @@ def evaluate(model):
             preds = [[], [], [], [], [], []]
 
             for batch in data_loader: 
-                trg_expect =batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
+                trg_expect = batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
                 trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
                 # for trg_expect_ in trg_expect:
                 #     if bpe_flag == True:
                 #         outfile.write(set_ + " EXPECTED: " + sp.decode(trg_expect_.squeeze(0).tolist()).lower() + '\n')
                 #     else:                    
                 #         outfile.write(set_ + " EXPECTED: " + re.sub(r"[#^$]+","",text_transform.int_to_text(trg_expect_.squeeze(0))) + '\n')
-                valid_lengths=batch[2]
+                valid_lengths = batch[2]
 
-                encoder=model(batch[0].to(device), valid_lengths)
-                i=0
+                if isinstance(model, Early_Sequence_Conformer):
+                    encoder = model(batch[0].to(device), trg, valid_lengths)
+                else: 
+                    encoder = model(batch[0].to(device), valid_lengths)
                 
+                i = 0
                 for enc in encoder:
                     i = i + 1
                     best_combined = ctc_predict(enc, i - 1)
                     for best_ in best_combined:
-                        if bpe_flag==True:
+                        if bpe_flag == True:
                             preds[i-1].append(apply_lex(sp.decode(best_).lower(),words) + '\n')
-                            ofile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(sp.decode(best_).lower(),words) + '\n')
+                            ofile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(sp.decode(best_).lower(), words) + '\n')
                         else:
                             preds[i-1].append(apply_lex(re.sub(r"[#^$]+","",best_.lower()),words) + '\n')
-                            ofile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(re.sub(r"[#^$]+","",best_.lower()),words) + '\n')  
+                            ofile.write(set_ + " BEAM_OUT_" + str(i) + ": " + apply_lex(re.sub(r"[#^$]+","",best_.lower()), words) + '\n')  
 
                 print('Batch complete')  
 

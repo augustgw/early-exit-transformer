@@ -9,7 +9,12 @@ import sentencepiece as spm
 
 # Training flags
 bpe_flag = True
+flag_CTC = False
+flag_CE = True
+flag_CTCCE = False
+ctc_lambda = 0.2
 flag_distill = False
+distill_lambda = 0.3
 
 # GPU device settings
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -21,20 +26,20 @@ batch_size = 8
 max_len = 2000
 d_model = 256
 num_encoder_layers = 12
-num_decoder_layers = 3
+num_decoder_layers = 12
 num_heads = 8
-num_enc_replay = 2
+num_enc_replay = 1
 dim_feed_forward = 2048
 drop_prob = 0.1
 depthwise_kernel_size = 31
 max_utterance_length= 360 # Max number of labels in training utterances
 
-# LSTM decoder parameters
+# LSTM decoder parameter
 lstm_hidden_size = 256
-num_lstm_layers = 1
+num_lstm_layers = 6
 
 # Sequence decoder parameters
-num_tf_decoder_layers = 3
+num_tf_decoder_layers = 6
 
 src_pad_idx = 0
 trg_pad_idx = 30
@@ -67,7 +72,7 @@ n_mfcc = 80
 
 
 # Optimizer parameters
-init_lr = 1e-6 # 1e-5
+init_lr = 1e-5 # 1e-5
 factor = 0.9
 adam_eps = 1e-9 # 5e-9
 patience = 10

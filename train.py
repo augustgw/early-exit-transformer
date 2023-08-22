@@ -129,7 +129,7 @@ elif(args.model_type == 'Early_Sequence_Conformer'):
                                 features_length = n_mels,
                                 drop_prob = drop_prob,
                                 depthwise_kernel_size = depthwise_kernel_size,
-                                device = device).to(device)   
+                                device = device).to(device)
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
 warmup = len(data_loader)
@@ -138,7 +138,7 @@ print("batch_size:",batch_size," num_heads:",num_heads," num_encoder_layers:", n
 model.apply(initialize_weights)
 
 loss_fn = nn.CrossEntropyLoss()
-ctc_loss = nn.CTCLoss(blank = 0,zero_infinity = True)
+ctc_loss = nn.CTCLoss(blank = 0, zero_infinity = True)
 
 optimizer = NoamOpt(d_model, warmup, AdamW(params = model.parameters(),lr = 0, betas = (0.9, 0.98), eps = adam_eps, weight_decay = weight_decay))
 
@@ -153,11 +153,16 @@ def train(iterator):
         src = batch[0].to(device) 
         trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
         trg_expect = batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
-        
         valid_lengths = batch[3]
-        encoder = model(src, valid_lengths)
+
+        if isinstance(model, Early_Sequence_Conformer):
+            output, encoder = model(src, trg, valid_lengths)
+        else: 
+            encoder = model(src, valid_lengths)
+
         ctc_target_len = batch[2]
-        loss_layer = 0
+        loss_ctc = 0
+        loss_ce = 0
         loss_distill = 0
 
         if i % 300 == 0:
@@ -166,7 +171,15 @@ def train(iterator):
             else:
                 print("EXPECTED:", text_transform.int_to_text(trg_expect[0]))
         
+        last_out = output[output.size(0)-1].to(device)
         last_probs = encoder[encoder.size(0)-1].to(device)
+
+        # print(output.size())        # [1,               batch_size=8,   116,            d_model=256]
+        # print(encoder.size())       # [1,               batch_size=8,   input_len=395,  d_model=256]
+        # print(last_out.size())      # [input_len=395,   d_model=256]
+        # print(last_probs.size())    # [batch_size=8,    input_len=395,  d_model=256]
+        # print(batch[1].size())      # [batch_size=8,    117]
+        # print(trg.size())           # [batch_size=8,    116]
         
         if flag_distill == True:
             p_len = []
@@ -182,42 +195,65 @@ def train(iterator):
             #p_teacher = torch.exp(last_probs).detach()
         
         ctc_input_len = torch.full(size = (encoder.size(1),), fill_value = encoder.size(2), dtype = torch.long)
-        #print(encoder.size(), ctc_input_len)
 
         for enc in encoder[0:encoder.size(0) - 1]:
-            #print(enc.size(), last_probs.size())
-            #p_distill = p_teacher * enc #distill probs from last layer
-            loss_layer += ctc_loss(enc.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
-            if flag_distill == True:
-                #loss_distill += loss_fn(enc.permute(0,2,1), p_teacher.permute(0,2,1)).to(device)
-                loss_distill += ctc_loss(enc.permute(1,0,2), p_teacher, ctc_input_len, p_teacher_len).to(device)
+            
+            # CTC loss
+            if flag_CTC == True or flag_CTCCE == True:
+                loss_ctc += ctc_loss(enc.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
+                if flag_distill == True:
+                    loss_distill += ctc_loss(enc.permute(1,0,2), p_teacher, ctc_input_len, p_teacher_len).to(device)
+
+            # CE loss
+            if flag_CE == True or flag_CTCCE == True:
+                loss_ce += loss_fn(output.permute(0,2,1), batch[1]).to(device)
+                if flag_distill == True:
+                    loss_distill += loss_fn(output.permute(0,2,1), p_teacher.permute(0,2,1)).to(device)
+            
             if i % 300 == 0:
                 if bpe_flag == True:
                     print("CTC_OUT at [",i,"]:", sp.decode(ctc_predict(enc[0].unsqueeze(0))).lower())
                 else:
                     print("CTC_OUT at [",i,"]:", ctc_predict(enc[0].unsqueeze(0)))
+        
         del encoder
 
-        loss_layer += ctc_loss(last_probs.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
+        # CTC loss
+        if flag_CTC == True or flag_CTCCE == True:
+            loss_ctc += ctc_loss(last_probs.permute(1,0,2), batch[1], ctc_input_len, ctc_target_len).to(device)
+
+        # last_probs
+        # dim 0: batch size = 8
+        # dim 1: input length 
+        # dim 2: number of classes = d_model = 256
+
+        # CE loss
+        if flag_CE == True or flag_CTCCE == True:
+            loss_ce += loss_fn(last_out, batch[1]).to(device)
+
         if i % 300 == 0:
             if bpe_flag == True:
                 print("CTC_OUT at [",i,"]:", sp.decode(ctc_predict(last_probs[0].unsqueeze(0))).lower())
             else:
                 print("CTC_OUT at [",i,"]:", ctc_predict(last_probs[0].unsqueeze(0)))
         
-        loss = loss_layer
+        if flag_CTC == True:
+            loss = loss_ctc
+        elif flag_CE == True:
+            loss = loss_ce
+        elif flag_CTCCE == True:
+            loss = (ctc_lambda * loss_ctc) + ((1 - ctc_lambda) * loss_ce)
+
         if flag_distill == True:
-            loss = loss_layer + loss_distill
-            #loss = 0.7 * loss_layer + 0.3 * loss_distill
+            loss = (distill_lambda * loss_distill) + ((1 - distill_lambda) * loss)
+
         model.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
 
-        # if i % args["log_interval"] == 0:
-        #     wandb.log({"loss": loss})
-
         epoch_loss += loss.item()
+
         if flag_distill == True:
             print('step :', round((i / len(iterator)) * 100, 2), '% , loss_layer :', loss_layer.item(), '% , loss_distill :', loss_distill.item(), '% , loss :', loss.item())        
         else:

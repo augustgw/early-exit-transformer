@@ -136,7 +136,7 @@ class Early_Sequence_Conformer(nn.Module):
 
         self.emb = nn.Embedding(dec_voc_size, d_model)
         self.layer_norm = nn.LayerNorm(d_model,eps=1e-5)
-        self.tgt_pad_idx = trg_pad_idx
+        self.trg_pad_idx = trg_pad_idx
         
         self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
         self.positional_encoder_1 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
@@ -146,54 +146,55 @@ class Early_Sequence_Conformer(nn.Module):
         self.linears_1=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.num_enc_replay)])
         self.linears_2=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.num_enc_replay)])
         self.decoders = nn.ModuleList([nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=d_model,
-                            nhead=num_heads,
-                            dim_feedforward = dim_feed_forward,
-                            dropout=drop_prob,
-                            batch_first="True",
-                            norm_first ="True"),
-                            num_tf_decoder_layers, self.layer_norm) for _ in range(self.num_enc_replay)])
+                                nhead=num_heads,
+                                dim_feedforward=dim_feed_forward,
+                                dropout=drop_prob,
+                                batch_first=True,
+                                norm_first=True),
+                            num_layers=num_tf_decoder_layers, 
+                            norm=self.layer_norm) for _ in range(self.num_enc_replay)])
 
-    def forward(self, src, lengths):
+    def forward(self, src, trg, lengths):
 
         # Convolution
         src = self.conv_subsample(src)
         src = self.positional_encoder_1(src.permute(0,2,1))
+        
+        # Target for Transformer decoder
+        trg_mask = self.create_trg_mask(trg.size(1)).to(self.device)        
+        trg_key_padding_mask = self.create_pad_mask(trg, self.trg_pad_idx).to(self.device)
+        trg = self.emb(trg)
+        trg = self.positional_encoder_2(trg)
 
         length = torch.clamp(lengths/4,max=src.size(1)).to(torch.int).to(self.device)
-        out, enc_out = [], []
+        output, enc_out = [], []
         enc = src
         for decoder, linear_1, linear_2, layer in zip(self.decoders, self.linears_1, self.linears_2, self.conformers):
             enc, _ = layer(enc, length) # [batch_size=48, num_frames=4xx, vocab_size=256]
-            
-            # Decoder
-            tgt = torch.zeros_like(src)
-            # tgt_mask = self.create_tgt_mask(tgt.size(1)).to(self.device)        
-            # tgt_key_padding_mask = self.create_pad_mask(tgt, self.tgt_pad_idx).to(self.device)
-            # tgt = self.emb(tgt)
-            # tgt = self.positional_encoder_2(tgt)
 
-            # out = decoder(tgt, enc, tgt_mask=tgt_mask, tgt_key_padding_mask=tgt_key_padding_mask) 
-            out = decoder(tgt, enc)
+            out = decoder(trg, enc, tgt_mask=trg_mask, tgt_key_padding_mask=trg_key_padding_mask)
             out = linear_2(out)
             out = torch.nn.functional.log_softmax(out,dim=2)
-            # output += [out.unsqueeze(0)]#output.append(out.unsqueeze(0))
+            output += [out.unsqueeze(0)]
             
             # For CTC loss
             out = linear_1(enc) 
             out = torch.nn.functional.log_softmax(out,dim=2)
-            enc_out += [out.unsqueeze(0)]#output.append(out.unsqueeze(0))
+            enc_out += [out.unsqueeze(0)]
 
+        output = torch.cat(output)
         enc_out = torch.cat(enc_out)
         
-        return enc_out
+        return output, enc_out
 
     def create_pad_mask(self, matrix: torch.tensor, pad_token: int) -> torch.tensor:
         # If matrix = [1,2,3,0,0,0] where pad_token=0, the result mask is
         # [False, False, False, True, True, True]
         return (matrix == pad_token)
 
-    def create_tgt_mask(self, sz: int) -> Tensor:
+    def create_trg_mask(self, sz: int) -> Tensor:
         r"""Generate a square mask for the sequence. The masked positions are filled with float('-inf').
             Unmasked positions are filled with float(0.0).
         """
         return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1)
+
