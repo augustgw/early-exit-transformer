@@ -1,10 +1,11 @@
 """
-@author : Hyunwoong
+@Author : Hyunwoong
 @when : 2019-10-22
 @homepage : https://github.com/gusdnd852
 """
 import math
 import time
+import torch
 
 from torch import nn, optim
 import os
@@ -13,18 +14,33 @@ from torch.optim import Adam,AdamW
 
 import sys
 
-from models.model.early_exit import Early_encoder, Early_transformer, Early_conformer
-
-from util.epoch_timer import epoch_time
+from models.model.early_exit import Early_encoder, Early_transformer, Early_conformer, full_conformer
 from util.data_loader import text_transform
-from data import *
-from util.beam_infer import ctc_predict_, greedy_decoder
+
+from util.data_loader import pad_sequence
+from util.beam_infer import ctc_predict_
+from util.beam_infer import greedy_decoder
+from util.data_loader import collate_padding_fn
 from conf import *
-from util.data_loader import collate_fn
+from data import *
+
+#from voxpopuliloader import VOXPOPULI
 
 torch.set_num_threads(10) 
 cuda = torch.cuda.is_available()
 device = torch.device('cuda' if cuda else 'cpu')
+
+train_dataset1 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-clean-100", download=False)
+train_dataset2 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-clean-360", download=False)
+train_dataset3 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-other-500", download=False)
+train_dataset = torch.utils.data.ConcatDataset([train_dataset1,train_dataset2,train_dataset3])
+data_loader = torch.utils.data.DataLoader(train_dataset, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_padding_fn, num_workers=num_workers)
+#data_loader_1 = torch.utils.data.DataLoader(train_voxpopuli_50, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers) 
+
+#data_loader = torch.utils.data.DataLoader(train_tedlium, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
+
+
+#data_loader = torch.utils.data.DataLoader(train_voxpopuli, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
 
 
 class NoamOpt:
@@ -76,9 +92,8 @@ def initialize_weights(m):
     if hasattr(m, 'weight') and m.weight.dim() > 1:
         nn.init.xavier_uniform_(m.weight.data)
 
-n_encoder_layers=2
-n_enc_replay=6
-model = Early_conformer(src_pad_idx=src_pad_idx,
+
+model = full_conformer(trg_pad_idx=trg_pad_idx,
                         n_enc_replay=n_enc_replay,
                         d_model=d_model,
                         enc_voc_size=enc_voc_size,
@@ -87,6 +102,7 @@ model = Early_conformer(src_pad_idx=src_pad_idx,
                         dim_feed_forward=dim_feed_forward,
                         n_head=n_heads,
                         n_encoder_layers=n_encoder_layers,
+                        n_decoder_layers=n_decoder_layers,
                         features_length=n_mels,
                         drop_prob=drop_prob,
                         depthwise_kernel_size=depthwise_kernel_size,
@@ -94,7 +110,8 @@ model = Early_conformer(src_pad_idx=src_pad_idx,
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
 #print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers," num_decoder_layers:", n_decoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)
-warmup=len(data_loader)
+#warmup=len(data_loader_1) * 30
+warmup=len(data_loader) * n_batch_split
 print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device) 
 
 model.apply(initialize_weights)
@@ -123,128 +140,62 @@ def train(iterator):
     
     model.train()
     epoch_loss = 0
-    for i, batch in enumerate(iterator):
-        if not batch:
+    len_iterator = len(iterator)
+    for i,c_batch in enumerate(iterator):
+        if len(c_batch) != 4:
             continue
-        
-        src = batch[0].to(device) 
-        trg = batch[1][:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
-        trg_expect =batch[1][:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
-        #print("INPUT:",text_transform.int_to_text(trg[0]))
-        valid_lengths=batch[3]
-        encoder = model(src, valid_lengths)
-        ctc_target_len=batch[2]
-        loss_layer=0
-        loss_distill = 0
 
-        if i % 300 ==0:
-            if bpe_flag==True:
+        for batch_0,batch_1,batch_2,batch_3 in c_batch:
+
+            src = batch_0.to(device) 
+            trg = batch_1[:,:-1].to(device) #cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28] 
+            trg_expect =batch_1[:,1:].to(device) #shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]   
+
+            valid_lengths=batch_3
+            att_dec, encoder = model(src, valid_lengths, trg)
+
+            ctc_target_len=batch_2
+            loss_ctc = 0
+            loss_ce = 0
+
+            if i % 500 ==0:
                 print("EXPECTED:",sp.decode(trg_expect[0].tolist()).lower())
-            else:
-                print("EXPECTED:",text_transform.int_to_text(trg_expect[0]))
+
+            ctc_input_len=torch.full(size=(encoder.size(1),), fill_value = encoder.size(2), dtype=torch.long)
+            #print(encoder.size(),ctc_input_len)
+
+            for dec, enc in  zip(att_dec, encoder):
+                loss_ctc += ctc_loss(enc.permute(1,0,2),batch_1,ctc_input_len,ctc_target_len).to(device)
+                loss_ce +=  loss_fn(dec.permute(0,2,1), trg_expect)
+
+            del encoder
         
-        last_probs=encoder[encoder.size(0)-1].to(device)
-        if flag_distill==True:
+            loss = 0.3 * loss_ctc + 0.7 * loss_ce
 
-            p_len=[]
-            p_teacher=[]
-            for l_emit in last_probs:
-                p_t = torch.LongTensor(greedy_decoder(l_emit))
-                if i % 300 ==0 and not p_teacher:                
-                    print("PREDICTED:",sp.decode(p_t.tolist()).lower())
-                    
-                p_teacher += [p_t.unsqueeze(0)]
-                p_len += [len(p_t)]
-            p_teacher_len=torch.IntTensor(p_len)
-            p_teacher = pad_sequence(p_teacher, trg_pad_idx).squeeze(1).detach()
+            model.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
 
-            #p_teacher = torch.exp(last_probs).detach()
-        
-        ctc_input_len=torch.full(size=(encoder.size(1),), fill_value = encoder.size(2), dtype=torch.long)
-        #print(encoder.size(),ctc_input_len)
-        for enc in  encoder[0:encoder.size(0) - 1]:
-            #print(enc.size(),last_probs.size())
-            #p_distill = p_teacher * enc #distill probs from last layer
-            loss_layer += ctc_loss(enc.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
-            if flag_distill==True:
-                #loss_distill += loss_fn(enc.permute(0,2,1),p_teacher.permute(0,2,1)).to(device)
-                loss_distill += ctc_loss(enc.permute(1,0,2),p_teacher,ctc_input_len,p_teacher_len).to(device)
-            if i % 300 ==0:
-                if bpe_flag==True:
-                    print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict_(enc[0].unsqueeze(0))).lower())
-                else:
-                    print("CTC_OUT at [",i,"]:",ctc_predict_(enc[0].unsqueeze(0)))
-        del encoder
-        loss_layer += ctc_loss(last_probs.permute(1,0,2),batch[1],ctc_input_len,ctc_target_len).to(device)
-        if i % 300 ==0:
-            if bpe_flag==True:
-                print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict_(last_probs[0].unsqueeze(0))).lower())
-            else:
-                print("CTC_OUT at [",i,"]:",ctc_predict_(last_probs[0].unsqueeze(0)))
-        
-        loss = loss_layer
-        if flag_distill==True:
-            loss = loss_layer + loss_distill
-            #loss = 0.7 * loss_layer + 0.3 * loss_distill            
-        model.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
-        optimizer.step()
-        
-
-        epoch_loss += loss.item()
-        if flag_distill==True:
-            print('step :', round((i / len(iterator)) * 100, 2), '% , loss_layer :', loss_layer.item(), '% , loss_distill :', loss_distill.item(), '% , loss :', loss.item())        
-        else:
-            print('step :', round((i / len(iterator)) * 100, 2), '% , loss :', loss.item())
-    
-    return epoch_loss / len(iterator)
-
-
-'''
-def validate(model, iterator, criterion):
-    model.eval()
-    epoch_loss = 0
-    batch_bleu = []
-    with torch.no_grad():
-        for i, batch in enumerate(iterator):
-            src = batch.src
-            trg = batch.trg
-            output = model(src, trg[:, :-1])
-            output_reshape = output.contiguous().view(-1, output.shape[-1])
-            trg = trg[:, 1:].contiguous().view(-1)
-
-            loss = criterion(output_reshape, trg)
             epoch_loss += loss.item()
+        print('step :', round((i / len_iterator) * 100, 2), '% , loss :', loss.item(), 'loss_ce :',loss_ce.item(), 'loss_ctc :',loss_ctc.item())
+    
+    return epoch_loss / len_iterator
 
-            total_bleu = []
-            for j in range(batch_size):
-                try:
-                    trg_words = idx_to_word(batch.trg[j], loader.target.vocab)
-                    output_words = output[j].max(dim=1)[1]
-                    output_words = idx_to_word(output_words, loader.target.vocab)
-                    bleu = get_bleu(hypotheses=output_words.split(), reference=trg_words.split())
-                    total_bleu.append(bleu)
-                except:
-                    pass
 
-            total_bleu = sum(total_bleu) / len(total_bleu)
-            batch_bleu.append(total_bleu)
+def run(total_epoch, best_loss, data_loader):
 
-    batch_bleu = sum(batch_bleu) / len(batch_bleu)
-    return epoch_loss / len(iterator), batch_bleu
-'''
-
-def run(total_epoch, best_loss):
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
-    nepoch = 150#-1
-    moddir=os.getcwd()+'/trained_model/bpe_conformer_kd-1-1/'
+    nepoch = -1
+
+    moddir=os.getcwd()+'/trained_model/bpe_seq2seq_small_256/'
     os.makedirs(moddir, exist_ok=True)            
     initialize_model=False
-    best_model=moddir+'{}mod{:03d}-transformer'.format('',nepoch)
+    best_model=moddir+'{}mod{:03d}-transformer'.format('',nepoch)   #OCIO PAY ATTENTION REMOVE!!!
+    
     best_lr=moddir+'{}lr{:03d}-transformer'.format('',nepoch)
-
+    
     if os.path.exists(best_model):
         initialize_model=False
         print('loading model checkpoint:',best_model)
@@ -252,22 +203,40 @@ def run(total_epoch, best_loss):
 
     if os.path.exists(best_lr):
         print('loading learning rate checkpoint:',best_lr)
-        optimizer.load_state_dict(torch.load(best_lr))         
+        optimizer.load_state_dict(torch.load(best_lr))
 
-        if initialize_model == True:
-            for k in range(0, 10):
-                print("initializing step:",k)
-                t_loss=train(data_loader_initial)
+    if initialize_model == True:
+        total_loss=0
+        for step in range(0, 30):
+            print("Initializing step:",step)
+            total_loss+=train(data_loader_1)
+            print("TOTAL_LOSS-",step,":=",total_loss)
 
+    '''
+    moddir=os.getcwd()+'/trained_model/bpe_tedlium-2/'
+    if initialize_model == True:
 
+        total_loss=0
+
+        for step in range(0, 10):
+            print("Initializing step:",step)
+q            fractions=[[160000,179999,8],[182400,182482, 1], [180000,182399,4]]
+            for fracs in fractions:
+                batch_size=fracs[2]
+                train_voxpopuli=dataloader_voxpopuli.VOXPOPULI('/falavi/corpora/voxpopuli/',url='asr_train',lang='en',fract_1=fracs[0],fract_2=fracs[1])
+                data_loader = torch.utils.data.DataLoader(train_voxpopuli, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
+                print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)             
+            
+                total_loss+=train(data_loader)
+            print("TOTAL_LOSS-",step,":=",total_loss)
+    '''
     for step in range(nepoch + 1, total_epoch):
         start_time = time.time()
         #for data in data_loader:
         #    print(data[1])
         #sys.exit()
-            
-        total_loss = train(data_loader)
 
+        total_loss=train(data_loader)
         print("TOTAL_LOSS-",step,":=",total_loss)
         
         thr_l = (prev_loss - total_loss) / total_loss
@@ -321,4 +290,4 @@ def run(total_epoch, best_loss):
 
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')  
-    run(total_epoch=epoch, best_loss=inf)
+    run(total_epoch=epoch, best_loss=inf, data_loader=data_loader)

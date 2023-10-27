@@ -1,6 +1,7 @@
 from conf import *
 import torchaudio.transforms as T
 import torch.nn.functional as F
+import re
 
 '''
 @author : Hyunwoong
@@ -132,11 +133,14 @@ text_transform=TextTransform()
 
 def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=trg_pad_idx):   
 
-    tensors, targets, t_source = [], [], []
+    tensors, targets = [], []
     t_len=[]
+    t_source=[]
     k = 0
     # Gather in lists, and encode labels as indices
-    for waveform, _, label, *_, ut_id in batch:
+    for waveform, smp_freq, label, spk_id, ut_id, *_ in batch:
+        label=re.sub(r"<unk>|\[ unclear \]","",label)
+        label=re.sub(r"[#^$?:;.!\[\]]+","",label)        
         if len(label) < max_utterance_length:
             spec=spec_transform(waveform)#.to(device)
             spec = melspec_transform(spec).to(device)
@@ -144,7 +148,8 @@ def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=tr
             tensors += spec
             del spec
             if bpe_flag == True:
-                tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label) + [sp.eos_id()])
+                #tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label.lower()) + [sp.eos_id()])
+                tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label) + [sp.eos_id()])                
             else:
                 tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$"))
             targets += [tg.unsqueeze(0)]
@@ -163,33 +168,72 @@ def collate_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=tr
         return None
 
 
-def collate_infer_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=trg_pad_idx):   
-
-    tensors, targets, t_source = [], [], []
+def collate_padding_fn(batch, SOS_token=trg_sos_idx, EOS_token=trg_eos_idx, PAD_token=trg_pad_idx):   
 
     # Gather in lists, and encode labels as indices
-    for waveform, _, label, *_, ut_id in batch:
-        spec=spec_transform(waveform)#.to(device)
-        spec = melspec_transform(spec).to(device)
-        t_source += [spec.size(2)]
-        '''
-        npads = 1000
-        if spec.size(2)>1000:
-            npads = 500
-        spec = F.pad(spec, (0,npads), mode='constant',value=0)
-        '''
-        tensors += spec
-        del spec
-        if bpe_flag == True:
-            tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label) + [sp.eos_id()])
-        else:
-            tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$")) 
-        
-        targets += [tg.unsqueeze(0)]
-        del waveform
-        del label
+    batch=sorted(batch, key=lambda x: x[0].size(1), reverse=True)
 
-    tensors = pad_sequence(tensors,0)
-    targets = pad_sequence(targets,PAD_token)
-    return tensors.squeeze(1), targets.squeeze(1), torch.tensor(t_source)
-    
+    nsplit = n_batch_split
+    s_sum =sum(x[0].size(1) for x in batch) / nsplit
+    p_sum=0
+    chunked_batch = list()
+    init=0
+    end=0
+    p_split=0
+    for w,*_ in batch:
+        p_sum += w.size(1)
+        if p_sum >= s_sum:
+            chunked_batch.append(batch[init:end+1])            
+            p_sum = 0
+            p_split += 1
+            init = end+1
+        end += 1
+    if p_split != nsplit:
+        chunked_batch.append(batch[init:end])        
+
+    out_batch = []        
+    for c_batch in chunked_batch:
+        tensors, targets, t_len, t_source, o_batch = [], [], [], [], []
+        k = 0
+
+        for waveform, smp_freq, label, spk_id, ut_id, *_ in c_batch:
+            label=re.sub(r"<unk>|\[ unclear \]","",label)
+            label=re.sub(r"[#^$?:;.!\[\]]+","",label)
+
+            if len(label) < max_utterance_length:
+                spec=spec_transform(waveform)#.to(device)
+                spec = melspec_transform(spec).to(device)
+                t_source += [spec.size(2)]
+                tensors += spec
+                del spec
+                if bpe_flag == True:
+                    #tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label.lower()) + [sp.eos_id()])
+                    tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label) + [sp.eos_id()])
+                else:
+                    tg=torch.LongTensor(text_transform.text_to_int("^"+label.lower()+"$"))
+                targets += [tg.unsqueeze(0)]
+                t_len += [len(tg)]
+
+                k=k+1
+                del waveform
+                del label
+            else:
+                print('REMOVED:',ut_id,' LAB:',label)
+
+        if tensors:
+            tensors = pad_sequence(tensors,0)
+            targets = pad_sequence(targets,PAD_token)
+            o_batch = [tensors.squeeze(1), targets.squeeze(1),torch.tensor(t_len),torch.tensor(t_source)]
+            #print("TENSOR:",tensors.squeeze(1).size(), torch.tensor(t_source).size())
+        out_batch.append(o_batch)
+
+    '''    
+    for o_,a_,b_,c_ in out_batch:
+        print("LB:",len(o_),len(a_),len(b_), len(c_))
+        for oo_, aa_,bb_,cc_ in zip(o_,a_,b_,c_):
+            #print("OB:",len(i_), i_.size())
+            print("OB:", oo_.size(), aa_.size(), bb_.size(), cc_.size())            
+            print(aa_,bb_,cc_)
+    '''
+    return out_batch
+    #return c_tensors, c_targets, c_t_len, c_t_source

@@ -16,7 +16,8 @@ num_workers=1#0
 shuffle=True
 
 # model parameter setting
-batch_size = 48
+batch_size = 64
+n_batch_split = 4
 max_len = 2000
 d_model = 256
 n_encoder_layers=2
