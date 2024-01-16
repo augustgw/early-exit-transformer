@@ -43,8 +43,7 @@ See below for configuration options.
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--batch_size`           | `64`               | Batch size during training and inference       |
-| `--distill`       | `True`               | Whether to use knowledge distillation       |
-| `--n_batch_split`           | `64`               | Batch split size used to determine training warmup steps      |
+| `--n_batch_split`           | `64`               | In each batch, items are ordered by length and split into this number of sub-batches, in order to minimize padding and maximize GPU performance      |
 | `--max_len`       | `2000`               | Maximum length in terms of number of characters for model inputs       |
 | `--d_model`           | `256`               | Dimensionality of the model       |
 | `--n_enc_layers_per_exit`           | `2`               | Number of encoder layers per exit (where number of exits is determined by --n_enc_exits). For example, --n_enc_layers_per_exit=2 and --n_enc_exits=6 results in a encoder with 6 exits and 12 total layers, with an exit occurring every 2 layers       |
