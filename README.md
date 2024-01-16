@@ -1,6 +1,10 @@
 # Early-Exit Architectures for ASR
 
-Training dynamic [Conformer](https://arxiv.org/abs/2005.08100) models for Automatic Speech Recognition (ASR) using early-exiting techniques. 
+Training dynamic [Conformer](https://arxiv.org/abs/2005.08100) models for Automatic Speech Recognition (ASR) using early-exiting training techniques. 
+
+***Paper***
+
+Find our original paper on early-exit training, 'Training dynamic models using early exits for automatic speech recognition on resource-constrained devices', on [arXiv](https://arxiv.org/abs/2309.09546).
 
 ***Acknowledgements***
 
@@ -19,6 +23,8 @@ Incorporates code from [Transformer PyTorch implementation by Hyunwoong Ko](http
 See below for configuration options.
 
 ### Configuration
+
+*Note:* [SentencePiece](https://github.com/google/sentencepiece) is used to tokenize target labels.
 
 ***Training setup and options***
 
