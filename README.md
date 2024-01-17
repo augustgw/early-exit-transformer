@@ -36,7 +36,8 @@ See below for additional configuration options.
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--decoder_mode`  | --                 | **Required**: Whether to use a connectionist temporal classification-based (`ctc`) or attention encoder-decoder-based (`aed`) decoder       |
-| `--n_gpu_workers` | `10`               | Sets number of GPU workers       |
+| `--n_threads` | `10`               | Sets number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
+| `--n_gpu_workers` | `10`               | Sets number of GPU workers for loading data      |
 | `--shuffle`       | `True`               | Shuffles training data upon loading       |
 
 ***Model parameters***
@@ -75,4 +76,4 @@ See below for additional configuration options.
 | `--adam_eps`           | `1e-9`               | Epsilon parameter used in AdamW optimization algorithm       |
 | `--weight_decay`           | `5e-4`               | Weight decay coefficient used in AdamW optimization algorithm       |
 | `--warmup`         | `8000`               | Number of learning rate warmup steps       |
-| `--clip`           | `1.0`               | Gradient norms higher than this value will be clipped during training. See PyTorch clip_grad_norm_ function       |
+| `--clip`           | `1.0`               | Gradient norms higher than this value will be clipped during training. See PyTorch torch.nn.utils.clip_grad_norm_ function       |
