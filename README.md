@@ -14,13 +14,13 @@ Incorporates code from [Transformer PyTorch implementation by Hyunwoong Ko](http
 
 ***CTC***
 
-`train-ctc.py --option value`
+`main.py --decoder_mode ctc --option value`
 
 ***Attention Encoder-Decoder***
 
-`train-ae.py --option value`
+`main.py --decoder_mode aed --option value`
 
-See below for configuration options.
+See below for additional configuration options.
 
 ### Configuration
 
@@ -29,14 +29,15 @@ See below for configuration options.
 ***Training setup and options***
 
 <!--- | `--bpe`           | `True`               | Whether to use BPE-based tokenization with SentencePiece       |
-| `--distill`       | `False`               | Whether to use knowledge distillation       | --->
+| `--distill`       | `False`               | Whether to use knowledge distillation       | 
+| `--lexicon_path`           | `lexicon.txt`               | Path to lexicon file       |
+| `--tokens_path`           | `tokens.txt`               | Path to tokens file      | --->
 
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
-| `--num_gpu_workers` | `10`               | Sets number of GPU workers       |
+| `--decoder_mode`  | --                 | **Required**: Whether to use a connectionist temporal classification-based (`ctc`) or attention encoder-decoder-based (`aed`) decoder       |
+| `--n_gpu_workers` | `10`               | Sets number of GPU workers       |
 | `--shuffle`       | `True`               | Shuffles training data upon loading       |
-| `--lexicon_path`           | `lexicon.txt`               | Path to lexicon file       |
-| `--tokens_path`           | `tokens.txt`               | Path to tokens file      |
 
 ***Model parameters***
 
@@ -73,4 +74,5 @@ See below for configuration options.
 | `--init_lr`           | `1e-5`               | Initial learning rate during training       |
 | `--adam_eps`           | `1e-9`               | Epsilon parameter used in AdamW optimization algorithm       |
 | `--weight_decay`           | `5e-4`               | Weight decay coefficient used in AdamW optimization algorithm       |
+| `--warmup`         | `8000`               | Number of learning rate warmup steps       |
 | `--clip`           | `1.0`               | Gradient norms higher than this value will be clipped during training. See PyTorch clip_grad_norm_ function       |
