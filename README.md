@@ -36,8 +36,8 @@ See below for additional configuration options.
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--decoder_mode`  | --                 | **Required**: Whether to use a connectionist temporal classification-based (`ctc`) or attention encoder-decoder-based (`aed`) decoder       |
-| `--n_threads` | `10`               | Sets number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
-| `--n_gpu_workers` | `10`               | Sets number of GPU workers for loading data      |
+| `--num_threads` | `10`               | Sets number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
+| `--num_workers` | `10`               | Sets number of GPU workers for loading data      |
 | `--shuffle`       | `True`               | Shuffles training data upon loading       |
 
 ***Model parameters***
