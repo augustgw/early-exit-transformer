@@ -1,4 +1,4 @@
-from conf import *
+from util.conf import *
 import torchaudio.transforms as T
 import torch.nn.functional as F
 
@@ -23,21 +23,8 @@ LM_WEIGHT = 10.0
 WORD_SCORE = -0.26
 N_BEST = 1
 '''
+
 if bpe_flag== True:
-    '''
-    beam_search_decoder = ctc_decoder(
-        lexicon=lexicon,
-        tokens=tokens,
-        nbest=N_BEST,
-        log_add=True,
-        beam_size=150,
-        word_score=WORD_SCORE,
-        lm_weight=LM_WEIGHT,
-        blank_token="@",
-        unk_word="<unk>",
-        sil_token="<pad>"
-        )
-    '''
     decoder=[]
     #for w_ins in [-1,-1,-1,-1,-1, -1]: #valori positivi aumentano le inserzioni
     for w_ins in [0,0,0,0,0,0]: #valori positivi aumentano le inserzioni        

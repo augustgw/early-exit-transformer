@@ -44,12 +44,12 @@ class Conv2dSubampling(nn.Module):
     
 class Early_transformer(nn.Module):
 
-    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, n_decoder_layers, features_length, drop_prob, device):
+    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers, n_dec_layers, features_length, drop_prob, device):
         super().__init__()
         self.src_pad_idx = src_pad_idx
         self.trg_pad_idx = trg_pad_idx
         self.trg_sos_idx = trg_sos_idx
-        self.n_enc_replay=n_enc_replay
+        self.n_enc_exits=n_enc_exits
         self.device = device
         self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
         self.conv2_subsample = Conv2dSubampling(in_channels=features_length, out_channels=d_model)
@@ -58,25 +58,25 @@ class Early_transformer(nn.Module):
         self.emb = nn.Embedding(dec_voc_size, d_model)
         self.layer_norm=nn.LayerNorm(d_model,eps=1e-5)
 
-        self.linears_1=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
-        self.linears_2=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
+        self.linears_1=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
+        self.linears_2=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
         
         self.encoders = nn.ModuleList([Encoder(d_model=d_model,
                             n_head=n_head,
                             max_len=max_len,
-                            ffn_hidden=dim_feed_forward,
+                            ffn_hidden=d_feed_forward,
                             enc_voc_size=enc_voc_size,
                             drop_prob=drop_prob,
-                            n_layers=n_encoder_layers,
-                            device=device) for _ in range(self.n_enc_replay)])
+                            n_layers=n_enc_layers,
+                            device=device) for _ in range(self.n_enc_exits)])
 
         self.decoders = nn.ModuleList([nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=d_model,
                             nhead=n_head,
-                            dim_feedforward=dim_feed_forward,
+                            dim_feedforward=d_feed_forward,
                             dropout=drop_prob,
                             batch_first= "True",
                             norm_first = "True"),
-                            n_decoder_layers, self.layer_norm) for _ in range(self.n_enc_replay)])
+                            n_dec_layers, self.layer_norm) for _ in range(self.n_enc_exits)])
     
     def forward(self, src, trg):
 
@@ -123,24 +123,24 @@ class Early_transformer(nn.Module):
 
 class Early_encoder(nn.Module):
 
-    def __init__(self, src_pad_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers,  features_length, drop_prob, device):
+    def __init__(self, src_pad_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers,  features_length, drop_prob, device):
         super().__init__()
         self.src_pad_idx = src_pad_idx
-        self.n_enc_replay=n_enc_replay
+        self.n_enc_exits=n_enc_exits
         self.device = device
         self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
         self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
 
-        self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
+        self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
         
         self.encoders = nn.ModuleList([Encoder(d_model=d_model,
                             n_head=n_head,
                             max_len=max_len,
-                            ffn_hidden=dim_feed_forward,
+                            ffn_hidden=d_feed_forward,
                             enc_voc_size=enc_voc_size,
                             drop_prob=drop_prob,
-                            n_layers=n_encoder_layers,
-                            device=device) for _ in range(self.n_enc_replay)])
+                            n_layers=n_enc_layers,
+                            device=device) for _ in range(self.n_enc_exits)])
 
     def forward(self, src):
 
@@ -163,22 +163,22 @@ class Early_encoder(nn.Module):
 
 class Early_conformer(nn.Module):
 
-    def __init__(self, src_pad_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers,  features_length, drop_prob, depthwise_kernel_size, device):
+    def __init__(self, src_pad_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers,  features_length, drop_prob, depthwise_kernel_size, device):
         super().__init__()
         self.input_dim=d_model
         self.num_heads=n_head
-        self.ffn_dim=dim_feed_forward
-        self.num_layers=n_encoder_layers
+        self.ffn_dim=d_feed_forward
+        self.num_layers=n_enc_layers
         self.depthwise_conv_kernel_size=depthwise_kernel_size
-        self.n_enc_replay=n_enc_replay
+        self.n_enc_exits=n_enc_exits
         self.dropout=drop_prob
         self.device=device
         self.src_pad_idx=src_pad_idx
         
         self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
         self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
-        self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
-        self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_replay)])
+        self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
+        self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_exits)])
 
     def forward(self, src, lengths):
 
@@ -202,16 +202,16 @@ class Early_conformer(nn.Module):
 
 class full_conformer(nn.Module):
 
-    def __init__(self, trg_pad_idx, n_enc_replay, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers,  n_decoder_layers, features_length, drop_prob, depthwise_kernel_size, device):
+    def __init__(self, trg_pad_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers,  n_dec_layers, features_length, drop_prob, depthwise_kernel_size, device):
         super().__init__()
         self.input_dim=d_model
         self.num_heads=n_head
-        self.ffn_dim=dim_feed_forward
-        self.num_layers=n_encoder_layers
+        self.ffn_dim=d_feed_forward
+        self.num_layers=n_enc_layers
         self.depthwise_conv_kernel_size=depthwise_kernel_size
-        self.n_enc_replay=n_enc_replay
+        self.n_enc_exits=n_enc_exits
         self.dropout=drop_prob
-        self.n_decoder_layers=n_decoder_layers
+        self.n_dec_layers=n_dec_layers
         self.device=device
         self.layer_norm=nn.LayerNorm(d_model,eps=1e-5)
         self.emb = nn.Embedding(dec_voc_size, d_model)
@@ -220,15 +220,15 @@ class full_conformer(nn.Module):
         self.conv_subsample = Conv1dSubampling(in_channels=features_length, out_channels=d_model)
 
 
-        self.linears_1=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
-        self.linears_2=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_replay)])
+        self.linears_1=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
+        self.linears_2=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
 
         self.positional_encoder_1 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
         self.positional_encoder_2 = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)        
         
         
-        self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_replay)])
-        self.decoders = nn.ModuleList([nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=self.input_dim, nhead=self.num_heads, dim_feedforward=self.ffn_dim, dropout=self.dropout, batch_first= "True", norm_first = "True"), self.n_decoder_layers, self.layer_norm) for _ in range(self.n_enc_replay)])
+        self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_exits)])
+        self.decoders = nn.ModuleList([nn.TransformerDecoder(nn.TransformerDecoderLayer(d_model=self.input_dim, nhead=self.num_heads, dim_feedforward=self.ffn_dim, dropout=self.dropout, batch_first= "True", norm_first = "True"), self.n_dec_layers, self.layer_norm) for _ in range(self.n_enc_exits)])
 
 
     def _encoder_(self, src: Tensor, lengths: Tensor, layer_n: int) -> Tensor:

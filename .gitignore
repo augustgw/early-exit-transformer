@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+models/__pycache__/
+
+# Data
+LibriSpeech/
+
+# Test files / old files
+conf_old.py 
+conf_test.py
+inference-new.py 
+train-new.py
+
+# Trained models
+trained_model/
+
+# Misc.
+paper/

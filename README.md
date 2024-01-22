@@ -2,6 +2,11 @@
 
 Transformer model [(Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) PyTorch implementation adapted from [Hyunwoong Ko](https://github.com/hyunwoongko/transformer) by Daniele Falavigna for Automatic Speech Recognition (ASR) and Spoken Language Understanding (SLU) tasks. We are investigating the use of early-exit mechanisms to improve model efficiency on these tasks.
 
+# Requirements
+
+torch >= 2.0.0
+torchaudio >= 2.0.1
+
 <!-- # Transformer
 
 ## 1. Implementations

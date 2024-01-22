@@ -21,7 +21,7 @@ from util.data_loader import text_transform
 from util.tokenizer import *
 from util.beam_infer import *
 
-from conf import *
+from util.conf import *
 
 from util.data_loader import collate_infer_fn
 
@@ -30,34 +30,34 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 '''
 model = Early_encoder(src_pad_idx=src_pad_idx,
-            n_enc_replay=n_enc_replay,
+            n_enc_exits=n_enc_exits,
             d_model=d_model,
             enc_voc_size=enc_voc_size,
             dec_voc_size=dec_voc_size,
             max_len=max_len,
-            dim_feed_forward=dim_feed_forward,
+            d_feed_forward=d_feed_forward,
             n_head=n_heads,
-            n_encoder_layers=n_encoder_layers,
+            n_enc_layers=n_enc_layers,
             features_length=n_mels,
             drop_prob=drop_prob,
             device=device).to(device)
 '''
 model = Early_conformer(src_pad_idx=src_pad_idx,
-                        n_enc_replay=n_enc_replay,
+                        n_enc_exits=n_enc_exits,
                         d_model=d_model,
                         enc_voc_size=enc_voc_size,
                         dec_voc_size=dec_voc_size,
                         max_len=max_len,
-                        dim_feed_forward=dim_feed_forward,
+                        d_feed_forward=d_feed_forward,
                         n_head=n_heads,
-                        n_encoder_layers=n_encoder_layers,
+                        n_enc_layers=n_enc_layers,
                         features_length=n_mels,
                         drop_prob=drop_prob,
                         depthwise_kernel_size=depthwise_kernel_size,
                         device=device).to(device)                                                                                                                                                            
 
 print(f'The model has {count_parameters(model):,} trainable parameters')
-print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_encoder_layers,"vocab_size:",dec_voc_size,"DEVICE:",device) 
+print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_enc_layers,"vocab_size:",dec_voc_size,"DEVICE:",device) 
 
 loss_fn = nn.CrossEntropyLoss()
 ctc_loss = nn.CTCLoss(blank=0,zero_infinity=True)

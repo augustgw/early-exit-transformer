@@ -28,7 +28,7 @@ class Conv1dSubampling(nn.Module):
 
 class Transformer(nn.Module):
 
-    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, n_decoder_layers, features_length, drop_prob, device):
+    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers, n_dec_layers, features_length, drop_prob, device):
         super().__init__()
         self.src_pad_idx = src_pad_idx
         self.trg_pad_idx = trg_pad_idx
@@ -45,19 +45,19 @@ class Transformer(nn.Module):
         self.encoder = Encoder(d_model=d_model,
                                n_head=n_head,
                                max_len=max_len,
-                               ffn_hidden=dim_feed_forward,
+                               ffn_hidden=d_feed_forward,
                                enc_voc_size=enc_voc_size,
                                drop_prob=drop_prob,
-                               n_layers=n_encoder_layers,
+                               n_layers=n_enc_layers,
                                device=device)
 
         self.decoder = Decoder(d_model=d_model,
                                n_head=n_head,
                                max_len=max_len,
-                               ffn_hidden=dim_feed_forward,
+                               ffn_hidden=d_feed_forward,
                                dec_voc_size=dec_voc_size,
                                drop_prob=drop_prob,
-                               n_layers=n_decoder_layers,
+                               n_layers=n_dec_layers,
                                device=device)
         
     def _encoder_(self, src: Tensor) -> Tensor:
@@ -164,7 +164,7 @@ class Transformer(nn.Module):
     
 class CTC_Self_Attention(nn.Module):
 
-    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, dec_voc_size, d_model, n_head, max_len,  dim_feed_forward, n_encoder_layers, features_length, drop_prob, device):
+    def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers, features_length, drop_prob, device):
         super().__init__()
         self.src_pad_idx = src_pad_idx
         self.trg_pad_idx = trg_pad_idx
@@ -178,10 +178,10 @@ class CTC_Self_Attention(nn.Module):
         self.encoder = Encoder(d_model=d_model,
                                n_head=n_head,
                                max_len=max_len,
-                               ffn_hidden=dim_feed_forward,
+                               ffn_hidden=d_feed_forward,
                                enc_voc_size=dec_voc_size,
                                drop_prob=drop_prob,
-                               n_layers=n_encoder_layers,
+                               n_layers=n_enc_layers,
                                device=device)
 
     def forward(self, src):
