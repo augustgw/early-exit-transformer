@@ -9,7 +9,8 @@ LibriSpeech/
 conf_old.py 
 conf_test.py
 inference-new.py 
-train-new.py
+train_ae.py
+train_ctc.py
 
 # Trained models
 trained_model/

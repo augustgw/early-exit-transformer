@@ -44,6 +44,17 @@ def get_parser():
         """
     )
 
+    parser.add_argument(
+        "--model_dir",
+        type=str,
+        default="/trained_model",
+        help="""
+            Directory in which to save the trained model state_dict
+            and learning rate objects. By default, the model is
+            saved after achieving a new best loss during training.
+        """
+    )
+
     # GPU device settings
 
     parser.add_argument(
@@ -88,7 +99,7 @@ def get_parser():
     parser.add_argument(
         "--n_batch_split",
         type=int,
-        default=64,
+        default=4,
         help="""
             In each batch, items are ordered by length 
             and split into this number of sub-batches, 
@@ -165,6 +176,26 @@ def get_parser():
         default=2048,
         help="""
             Dimensionality of the feed-forward network.
+        """
+    )
+
+    parser.add_argument(
+        "--aed_ce_weight",
+        type=int,
+        default=0.7,
+        help="""
+            For AED models: weight coefficient for the 
+            cross-entropy loss.
+        """
+    )
+
+    parser.add_argument(
+        "--aed_ctc_weight",
+        type=int,
+        default=0.3,
+        help="""
+            For AED models: weight coefficient for the
+            CTC loss.
         """
     )
 
@@ -300,9 +331,11 @@ def get_parser():
     parser.add_argument(
         "--warmup",
         type=int,
-        default=8000,
+        default=-1,
         help="""
             Number of learning rate warmup steps.
+            Default behavior (= -1): Warmup for the length of the
+            dataloader.
         """
     )
 
@@ -324,7 +357,7 @@ def get_args():
 
     conf = vars(args)
 
-    conf["decoder_mode"] = "aed"
+    conf["decoder_mode"] = args.decoder_mode.lower()
 
     conf["bpe_flag"] = args.bpe
     conf["flag_distill"] = args.distill
@@ -334,6 +367,7 @@ def get_args():
     conf["shuffle"] = args.shuffle
     conf["lexicon"] = args.lexicon_path
     conf["tokens"] = args.tokens_path
+    conf["model_dir"] = args.model_dir
 
     conf["batch_size"] = args.batch_size
     conf["n_batch_split"] = args.n_batch_split
@@ -347,6 +381,8 @@ def get_args():
     conf["drop_prob"] = args.drop_prob
     conf["depthwise_kernel_size"] = args.depthwise_kernel_size
     conf["max_utterance_length"] = args.max_utterance_length
+    conf["aed_ce_weight"] = args.aed_ce_weight
+    conf["aed_ctc_weight"] = args.aed_ctc_weight
 
     conf["src_pad_idx"] = 0
     conf["trg_pad_idx"] = 30
@@ -372,7 +408,6 @@ def get_args():
     conf["win_length"] = args.win_length
     conf["hop_length"] = args.hop_length
     conf["n_mels"] = args.n_mels
-    conf["n_mfcc"] = 80
 
     conf["init_lr"] = args.init_lr
     conf["adam_eps"] = args.adam_eps

@@ -1,158 +1,35 @@
 import math
 import sys
 import time
-import torch
 import os
-import torchaudio
+import torch
 from torch import nn, optim
-from torchaudio.models.decoder import ctc_decoder
 from torch.optim import AdamW
 
-from data import *
-from models.model.early_exit import Early_encoder, Early_transformer, Early_conformer, full_conformer
-from util.data_loader import text_transform, pad_sequence, collate_padding_fn
-from util.beam_infer import ctc_predict_, ctc_cuda_predict, greedy_decoder
+from util.conf import get_args
+from data import get_data_loader
+from models.model.early_exit import Early_conformer
+from util.beam_infer import ctc_cuda_predict
+from util.noam_opt import NoamOpt
+from util.model_utils import count_parameters, initialize_weights
 
 
-# from voxpopuliloader import VOXPOPULI
-
-torch.set_num_threads(10)
-cuda = torch.cuda.is_available()
-device = torch.device('cuda' if cuda else 'cpu')
-
-
-
-# data_loader_1 = torch.utils.data.DataLoader(train_voxpopuli_50, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
-
-# data_loader = torch.utils.data.DataLoader(train_tedlium, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
-
-
-# data_loader = torch.utils.data.DataLoader(train_voxpopuli, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
-
-
-class NoamOpt:
-    "Optim wrapper that implements rate."
-
-    def __init__(self, model_size, warmup, optimizer):
-        self.optimizer = optimizer
-        self._step = 0
-        self.warmup = warmup
-        self.model_size = model_size
-        self._rate = 0
-
-    def state_dict(self):
-        """Returns the state of the warmup scheduler as a :class:`dict`.
-        It contains an entry for every variable in self.__dict__ which
-        is not the optimizer.
-        """
-        return {key: value for key, value in self.__dict__.items() if key != 'optimizer'}
-
-    def load_state_dict(self, state_dict):
-        """Loads the warmup scheduler's state.
-        Arguments:
-            state_dict (dict): warmup scheduler state. Should be an object returned
-            from a call to :meth:`state_dict`.
-        """
-        self.__dict__.update(state_dict)
-
-    def step(self):
-        "Update parameters and rate"
-        self._step += 1
-        rate = self.rate()
-        for p in self.optimizer.param_groups:
-            p['lr'] = rate
-        self._rate = rate
-        print("RATE:", rate)
-        self.optimizer.step()
-
-    def rate(self, step=None):
-        "Implement `lrate` above"
-        if step is None:
-            step = self._step
-        return (self.model_size ** (-0.5) * min(step ** (-0.5), step * self.warmup ** (-1.5)))
-
-
-def count_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-def initialize_weights(m):
-    if hasattr(m, 'weight') and m.weight.dim() > 1:
-        nn.init.xavier_uniform_(m.weight.data)
-
-
-# n_enc_exits=6
-# n_enc_layers=2
-d_model = 256
-n_heads = 8
-d_feed_forward = 2048
-
-sp.load('sentencepiece/build/librispeech.bpe-5000.model')
-enc_voc_size = sp.get_piece_size()
-dec_voc_size = sp.get_piece_size()
-lexicon = "sentencepiece/build/librispeech-bpe-5000.lex"
-tokens = "sentencepiece/build/librispeech-bpe-5000.tok"
-
-model = Early_conformer(src_pad_idx=src_pad_idx,
-                        n_enc_exits=n_enc_exits,
-                        d_model=d_model,
-                        enc_voc_size=enc_voc_size,
-                        dec_voc_size=dec_voc_size,
-                        max_len=max_len,
-                        d_feed_forward=d_feed_forward,
-                        n_head=n_heads,
-                        n_enc_layers=n_enc_layers,
-                        features_length=n_mels,
-                        drop_prob=drop_prob,
-                        depthwise_kernel_size=depthwise_kernel_size,
-                        device=device).to(device)
-
-print(f'The model has {count_parameters(model):,} trainable parameters')
-# print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_enc_layers," num_decoder_layers:", n_dec_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)
-# warmup=len(data_loader_1) * 30
-warmup = len(data_loader) * n_batch_split
-print("batch_size:", batch_size, " num_heads:", n_heads, " num_encoder_layers:", n_enc_layers, " optimizer:",
-      "NOAM[warmup ", warmup, "]", "vocab_size:", dec_voc_size, "SOS,EOS,PAD", trg_sos_idx, trg_eos_idx, trg_pad_idx, "data_loader_len:", len(data_loader), "DEVICE:", device)
-
-model.apply(initialize_weights)
-
-'''
-optimizer = Adam(params=model.parameters(),
-                 lr=init_lr,
-                 weight_decay=weight_decay,
-                 eps=adam_eps)
-
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
-                                                 verbose=True,
-                                                 factor=factor,
-                                                 patience=patience)
-'''
-
-loss_fn = nn.CrossEntropyLoss()
-ctc_loss = nn.CTCLoss(blank=0, zero_infinity=True)
-
-optimizer = NoamOpt(d_model, warmup, AdamW(params=model.parameters(
-), lr=0, betas=(0.9, 0.98), eps=adam_eps, weight_decay=weight_decay))
-
-# optimizer = NoamOpt(d_model, warmup, Adam(params=model.parameters(),lr=0, betas=(0.9, 0.98), eps=adam_eps))
-
-
-def train(iterator):
+def train(args, model, iterator, optimizer, loss_fn, ctc_loss):
 
     model.train()
     epoch_loss = 0
     len_iterator = len(iterator)
     for i, c_batch in enumerate(iterator):
-        if len(c_batch) != 4:
+        if len(c_batch) != args.n_batch_split:
             continue
 
         for batch_0, batch_1, batch_2, batch_3 in c_batch:
 
-            src = batch_0.to(device)
+            src = batch_0.to(args.device)
             # cut [0, 28, ..., 28, 29] -> [0, 28, ..., 28]
-            trg = batch_1[:, :-1].to(device)
+            trg = batch_1[:, :-1].to(args.device)
             # shift [0, 28, ..., 28, 29] -> [28, ..., 28, 29]
-            trg_expect = batch_1[:, 1:].to(device)
+            trg_expect = batch_1[:, 1:].to(args.device)
 
             valid_lengths = batch_3
             encoder = model(src, valid_lengths)
@@ -167,30 +44,31 @@ def train(iterator):
 
             for enc in encoder:
                 loss_ctc += ctc_loss(enc.permute(1, 0, 2), batch_1,
-                                     ctc_input_len, ctc_target_len).to(device)
+                                     ctc_input_len, ctc_target_len).to(args.device)
             del encoder
 
             loss = loss_ctc
 
             model.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
 
             epoch_loss += loss.item()
         print('step :', round((i / len_iterator) * 100, 2),
               '% , loss :', loss.item())
         if i % 500 == 0:
-            print("EXPECTED:", sp.decode(trg_expect[0].tolist()).lower())
+            print("EXPECTED:", args.sp.decode(trg_expect[0].tolist()).lower())
             # print("CTC_OUT at [",i,"]:",sp.decode(ctc_predict_(enc[0].unsqueeze(0))).lower())
-            best_combined = ctc_cuda_predict(enc[0].unsqueeze(0), 5, tokens)
-            print("CTC_OUT at [", i, "]:", sp.decode(
+            best_combined = ctc_cuda_predict(
+                enc[0].unsqueeze(0), 5, args.tokens)
+            print("CTC_OUT at [", i, "]:", args.sp.decode(
                 best_combined[0][0].tokens).lower())
 
     return epoch_loss / len_iterator
 
 
-def run(total_epoch, best_loss, data_loader):
+def run(args, model, total_epoch, best_loss, data_loader, optimizer, loss_fn, ctc_loss):
 
     train_losses, test_losses, bleus = [], [], []
     prev_loss = 9999999
@@ -207,26 +85,25 @@ def run(total_epoch, best_loss, data_loader):
     if os.path.exists(best_model):
         initialize_model = False
         print('loading model checkpoint:', best_model)
-        model.load_state_dict(torch.load(best_model, map_location=device))
+        model.load_state_dict(torch.load(best_model, map_location=args.device))
 
     if os.path.exists(best_lr):
         print('loading learning rate checkpoint:', best_lr)
         optimizer.load_state_dict(torch.load(best_lr))
 
-    if initialize_model == True:
-        total_loss = 0
-        for step in range(0, 30):
-            print("Initializing step:", step)
-            total_loss += train(data_loader_1)
-            print("TOTAL_LOSS-", step, ":=", total_loss)
+    # if initialize_model == True:
+    #     total_loss = 0
+    #     for step in range(0, 30):
+    #         print("Initializing step:", step)
+    #         total_loss += train(data_loader_1)
+    #         print("TOTAL_LOSS-", step, ":=", total_loss)
 
     for step in range(nepoch + 1, total_epoch):
         start_time = time.time()
-        # for data in data_loader:
-        #    print(data[1])
-        # sys.exit()
 
-        total_loss = train(data_loader)
+        total_loss = train(args=args, model=model,
+                           iterator=data_loader, optimizer=optimizer,
+                           loss_fn=loss_fn, ctc_loss=ctc_loss)
         print("TOTAL_LOSS-", step, ":=", total_loss)
 
         thr_l = (prev_loss - total_loss) / total_loss
@@ -244,6 +121,52 @@ def run(total_epoch, best_loss, data_loader):
             print("WORST: not saving:", worst_model)
 
 
-if __name__ == '__main__':
+def main(args):
+    # Parse config from command line arguments
+
+    args = get_args()
+
     torch.multiprocessing.set_start_method('spawn')
-    run(total_epoch=epoch, best_loss=inf, data_loader=data_loader)
+
+    # Load data
+
+    data_loader = get_data_loader(args=args)
+
+    # Define model
+
+    model = Early_conformer(src_pad_idx=args.src_pad_idx,
+                            n_enc_exits=args.n_enc_exits,
+                            d_model=args.d_model,
+                            enc_voc_size=args.enc_voc_size,
+                            dec_voc_size=args.dec_voc_size,
+                            max_len=args.max_len,
+                            d_feed_forward=args.d_feed_forward,
+                            n_head=args.n_heads,
+                            n_enc_layers=args.n_enc_layers,
+                            features_length=args._mels,
+                            drop_prob=args.drop_prob,
+                            depthwise_kernel_size=args.depthwise_kernel_size,
+                            device=args.device).to(args.device)
+    
+    torch.multiprocessing.set_start_method('spawn')
+    torch.set_num_threads(args.num_threads)
+
+    print(f'The model has {count_parameters(model):,} trainable parameters')
+    warmup = len(data_loader) * args.n_batch_split
+    print("batch_size:", args.batch_size, " num_heads:", args.n_heads, " num_encoder_layers:", args.n_enc_layers, " optimizer:",
+          "NOAM[warmup ", warmup, "]", "vocab_size:", args.dec_voc_size, "SOS,EOS,PAD", args.trg_sos_idx, args.trg_eos_idx, args.trg_pad_idx, "data_loader_len:", len(data_loader), "DEVICE:", args.device)
+
+    model.apply(initialize_weights)
+
+    loss_fn = nn.CrossEntropyLoss()
+    ctc_loss = nn.CTCLoss(blank=0, zero_infinity=True)
+
+    optimizer = NoamOpt(args.d_model, warmup, AdamW(params=model.parameters(
+    ), lr=0, betas=(0.9, 0.98), eps=args.adam_eps, weight_decay=args.weight_decay))
+
+    run(args=args, model=model, total_epoch=args.epoch, best_loss=args.inf, 
+        data_loader=data_loader, optimizer=optimizer, loss_fn=loss_fn, ctc_loss=ctc_loss)
+
+
+if __name__ == '__main__':
+    main()

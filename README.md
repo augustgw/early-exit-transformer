@@ -12,13 +12,14 @@ Incorporates code from [Transformer PyTorch implementation by Hyunwoong Ko](http
 
 ### Usage
 
-***CTC***
-
-`main.py --decoder_mode ctc --option value`
-
 ***Attention Encoder-Decoder***
 
-`main.py --decoder_mode aed --option value`
+`train.py --decoder_mode aed --option value`
+
+***CTC***
+
+`train.py --decoder_mode ctc --option value`
+
 
 See below for additional configuration options.
 
@@ -39,13 +40,14 @@ See below for additional configuration options.
 | `--num_threads` | `10`               | Sets number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
 | `--num_workers` | `10`               | Sets number of GPU workers for loading data      |
 | `--shuffle`       | `True`               | Shuffles training data upon loading       |
+| `--model_dir`       | `trained_model`               | Directory in which to save the trained model       |
 
 ***Model parameters***
 
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--batch_size`           | `64`               | Batch size during training and inference       |
-| `--n_batch_split`           | `64`               | In each batch, items are ordered by length and split into this number of sub-batches, in order to minimize padding and maximize GPU performance      |
+| `--n_batch_split`           | `4`               | In each batch, items are ordered by length and split into this number of sub-batches, in order to minimize padding and maximize GPU performance      |
 | `--max_len`       | `2000`               | Maximum length in terms of number of characters for model inputs       |
 | `--d_model`           | `256`               | Dimensionality of the model       |
 | `--n_enc_layers_per_exit`           | `2`               | Number of encoder layers per exit (where number of exits is determined by --n_enc_exits). For example, --n_enc_layers_per_exit=2 and --n_enc_exits=6 results in a encoder with 6 exits and 12 total layers, with an exit occurring every 2 layers       |
@@ -56,6 +58,9 @@ See below for additional configuration options.
 | `--drop_prob`           | `0.1`               | Probability of a given element of the input to be randomly dropped during training       |
 | `--depthwise_kernel_size`           | `31`               | Kernel size of the depthwise convolutions in each Conformer block       |
 | `--max_utterance_length`           | `360`               | Input items longer than this value in terms of number of labels will be dropped during training       |
+| `--aed_ce_weight`           | `0.7`               | For AED models: weight coefficient for the cross-entropy loss.       |
+| `--aed_ctc_weight`           | `0.3`               | For AED models: weight coefficient for the CTC loss.       |
+
 
 
 ***Audio preprocessing***
@@ -75,5 +80,5 @@ See below for additional configuration options.
 | `--init_lr`           | `1e-5`               | Initial learning rate during training       |
 | `--adam_eps`           | `1e-9`               | Epsilon parameter used in AdamW optimization algorithm       |
 | `--weight_decay`           | `5e-4`               | Weight decay coefficient used in AdamW optimization algorithm       |
-| `--warmup`         | `8000`               | Number of learning rate warmup steps       |
+| `--warmup`         | `-1`               | Number of learning rate warmup steps. Default behavior (-1): Warmup for the length of the dataloader.       |
 | `--clip`           | `1.0`               | Gradient norms higher than this value will be clipped during training. See PyTorch torch.nn.utils.clip_grad_norm_ function       |

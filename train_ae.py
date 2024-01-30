@@ -16,8 +16,10 @@ def train(args, model, iterator, optimizer, loss_fn, ctc_loss):
     model.train()
     epoch_loss = 0
     len_iterator = len(iterator)
+    print(len_iterator)
+
     for i, c_batch in enumerate(iterator):
-        if len(c_batch) != 4:
+        if len(c_batch) != args.n_batch_split:
             continue
 
         for batch_0, batch_1, batch_2, batch_3 in c_batch:
@@ -52,10 +54,11 @@ def train(args, model, iterator, optimizer, loss_fn, ctc_loss):
 
             model.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
 
             epoch_loss += loss.item()
+
         print('step :', round((i / len_iterator) * 100, 2), '% , loss :',
               loss.item(), 'loss_ce :', loss_ce.item(), 'loss_ctc :', loss_ctc.item())
 
@@ -175,10 +178,11 @@ def main():
                             drop_prob=args.drop_prob,
                             depthwise_kernel_size=args.depthwise_kernel_size,
                             device=args.device).to(args.device)
+    
+    torch.multiprocessing.set_start_method('spawn')
+    torch.set_num_threads(args.num_threads)
 
     print(f'The model has {count_parameters(model):,} trainable parameters')
-    # print("batch_size:",batch_size," num_heads:",n_heads," num_encoder_layers:", n_enc_layers," num_decoder_layers:", n_dec_layers, " optimizer:","NOAM[warmup ",warmup, "]","vocab_size:",dec_voc_size,"SOS,EOS,PAD",trg_sos_idx,trg_eos_idx,trg_pad_idx,"data_loader_len:",len(data_loader),"DEVICE:",device)
-    # warmup=len(data_loader_1) * 30
     warmup = len(data_loader) * args.n_batch_split
     print("batch_size:", args.batch_size, " num_heads:", args.n_heads, " num_encoder_layers:", args.n_enc_layers, " optimizer:",
             "NOAM[warmup ", warmup, "]", "vocab_size:", args.dec_voc_size, "SOS,EOS,PAD", args.trg_sos_idx, args.trg_eos_idx, args.trg_pad_idx, "data_loader_len:", len(data_loader), "DEVICE:", args.device)
