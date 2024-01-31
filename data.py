@@ -1,7 +1,7 @@
 import torch
 import torchaudio
 
-from util.data_loader import CollatePaddingFn
+from util.data_loader import CollatePaddingFn, CollateInferFn
 
 
 def get_data_loader(args):
@@ -24,8 +24,30 @@ def get_data_loader(args):
                                               batch_size=args.batch_size,
                                               shuffle=args.shuffle, 
                                               collate_fn=collate_padding_fn, 
-                                              num_workers=args.num_workers)
+                                              num_workers=args.n_workers)
     # data_loader_initial = torch.utils.data.DataLoader(
-    # train_dataset1, pin_memory=False, batch_size=args.batch_size, shuffle=args.shuffle, collate_fn=collate_padding_fn, num_workers=args.num_workers)
+    # train_dataset1, pin_memory=False, batch_size=args.batch_size, shuffle=args.shuffle, collate_fn=collate_padding_fn, num_workers=args.n_workers)
 
     return data_loader
+
+
+def get_infer_data_loader(args, split=None, shuffle=None):
+
+    if shuffle == None:
+        shuffle = args.shuffle
+
+    try:
+        train_dataset = torchaudio.datasets.LIBRISPEECH(
+            "", url=split, download=False)
+
+        collate_infer_fn = CollateInferFn(args=args)
+        data_loader = torch.utils.data.DataLoader(train_dataset,
+                                                pin_memory=False,
+                                                batch_size=args.batch_size,
+                                                shuffle=shuffle,
+                                                collate_fn=collate_infer_fn,
+                                                num_workers=args.n_workers)
+        return data_loader
+
+    except:
+        exit("Invalid data split")

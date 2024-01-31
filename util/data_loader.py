@@ -126,7 +126,7 @@ class CollateFn(object):
                 t_source += [spec.size(2)]
                 tensors += spec
                 del spec
-                if self.args.bpe_flag == True:
+                if self.args.bpe == True:
                     # tg=torch.LongTensor([sp.bos_id()] + sp.encode_as_ids(label.lower()) + [sp.eos_id()])
                     tg = torch.LongTensor(
                         [self.args.sp.bos_id()] + self.args.sp.encode_as_ids(label) + [self.args.sp.eos_id()])
@@ -150,13 +150,11 @@ class CollateFn(object):
 
 
 class CollatePaddingFn(object):
-
     def __init__(self, args):
         self.args = args
 
     def __call__(self, batch,
                  SOS_token=None, EOS_token=None, PAD_token=None):
-
         if SOS_token == None:
             SOS_token = self.args.trg_sos_idx
         if EOS_token == None:
@@ -206,7 +204,7 @@ class CollatePaddingFn(object):
                     tensors += spec
                     del spec
 
-                    if self.args.bpe_flag == True:
+                    if self.args.bpe == True:
                         tg = torch.LongTensor(
                             [self.args.sp.bos_id()] + self.args.sp.encode_as_ids(label) + [self.args.sp.eos_id()])
                     else:
@@ -232,3 +230,60 @@ class CollatePaddingFn(object):
 
         return out_batch
         # return c_tensors, c_targets, c_t_len, c_t_source
+
+
+class CollateInferFn(object):
+    def __init__(self, args):
+        self.args = args
+
+    def __call__(self, batch,
+                 SOS_token=None, EOS_token=None, PAD_token=None):
+        if SOS_token == None:
+            SOS_token = self.args.trg_sos_idx
+        if EOS_token == None:
+            EOS_token = self.args.trg_eos_idx
+        if PAD_token == None:
+            PAD_token = self.args.trg_pad_idx
+
+        tensors, targets, t_source = [], [], []
+
+        # Gather in lists, and encode labels as indices
+        for waveform, smp_freq, label, spk_id, ut_id, *_ in batch:
+            label = re.sub(r"[#^$,?:;.!]+|<unk>", "", label)
+
+            if "ignore_time_segment_in_scoring" in label:
+                continue
+            spec = spec_transform(waveform)  # .to(self.args.device)
+            spec = melspec_transform(spec).to(self.args.device)
+            t_source += [spec.size(2)]
+
+            npads = 1000
+            if spec.size(2) > 1000:
+                npads = 500
+
+            tensors += spec
+            del spec
+            
+            if self.args.bpe == True:
+                tg = torch.LongTensor(
+                    [self.args.sp.bos_id()] + self.args.sp.encode_as_ids(label) + [self.args.sp.eos_id()])
+            else:
+                tg = torch.LongTensor(
+                    text_transform.text_to_int("^"+label.lower()+"$"))
+
+            targets += [tg.unsqueeze(0)]
+            del waveform
+            del label
+
+        if tensors:
+            tensors = pad_sequence(tensors, 0)
+            targets = pad_sequence(targets, PAD_token)
+            len_out = torch.full((len(t_source),), tensors.size(2))
+            
+            if self.args.decoder_mode == "aed":
+                return tensors.squeeze(1), targets.squeeze(1), len_out
+            elif self.args.decoder_mode == "ctc":
+                return tensors.squeeze(1), targets.squeeze(1), torch.tensor(t_source)
+
+        else:
+            return None

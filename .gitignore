@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-models/__pycache__/
+*.pyc 
 
 # Data
 LibriSpeech/
@@ -17,3 +17,4 @@ trained_model/
 
 # Misc.
 paper/
+runs/

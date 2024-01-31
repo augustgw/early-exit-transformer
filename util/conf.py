@@ -45,34 +45,73 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--model_dir",
+        "--save_model_dir",
         type=str,
         default="/trained_model",
         help="""
-            Directory in which to save the trained model state_dict
-            and learning rate objects. By default, the model is
-            saved after achieving a new best loss during training.
-        """
-    )
-
-    # GPU device settings
-
-    parser.add_argument(
-        "--num_threads",
-        type=int,
-        default=10,
-        help="""
-            Sets number of threads for intraop parallelism on CPU.
-            See PyTorch torch.set_num_threads method.
+            Path to directory in which to save the trained model 
+            state_dict and learning rate objects. By default, 
+            the model is saved after achieving a new best 
+            loss during training.
         """
     )
 
     parser.add_argument(
-        "--num_workers",
-        type=int,
-        default=10,
+        "--load_model_path",
+        type=str,
+        default=None,
         help="""
-            Sets number of GPU workers for loading data.
+            Path to pre-trained model. In train.py, loads the model
+            as a checkpoint from which to begin training. In 
+            inference.py, loads the model for inference.
+        """
+    )
+
+    parser.add_argument(
+        "--load_model_dir",
+        type=str,
+        default=None,
+        help="""
+            Path to directory containing pre-trained model(s). 
+            Must be used in conjunction with --avg_model_start 
+            and --avg_model_end. Loads and averages the models 
+            from epochs --avg_model_start to --avg_model_end.
+            In train.py, the averaged model is used as a
+            checkpoint from which to begin training. 
+            In inference.py, the averaged model is used
+            for inference.
+        """
+    )
+
+    parser.add_argument(
+        "--avg_model_start",
+        type=int,
+        default=None,
+        help="""
+            Epoch from which to begin model averaging. 
+            Must be used in conjunction with --load_model_dir 
+            and --avg_model_end. Loads and averages the models 
+            from epochs --avg_model_start to --avg_model_end.
+            In train.py, the averaged model is used as a
+            checkpoint from which to begin training. 
+            In inference.py, the averaged model is used
+            for inference.
+        """
+    )
+
+    parser.add_argument(
+        "--avg_model_end",
+        type=int,
+        default=None,
+        help="""
+            Epoch from which to end model averaging. 
+            Must be used in conjunction with --load_model_dir 
+            and --avg_model_start. Loads and averages the models 
+            from epochs --avg_model_start to --avg_model_end.
+            In train.py, the averaged model is used as a
+            checkpoint from which to begin training. 
+            In inference.py, the averaged model is used
+            for inference.
         """
     )
 
@@ -82,6 +121,36 @@ def get_parser():
         default=True,
         help="""
             Shuffles training data upon loading.
+        """
+    )
+
+    parser.add_argument(
+        "--n_epochs",
+        type=int,
+        default=10000,
+        help="""
+            Number of training epochs.
+        """
+    )
+
+    # GPU device settings
+
+    parser.add_argument(
+        "--n_threads",
+        type=int,
+        default=10,
+        help="""
+            Sets number of threads for intraop parallelism on CPU.
+            See PyTorch torch.set_num_threads method.
+        """
+    )
+
+    parser.add_argument(
+        "--n_workers",
+        type=int,
+        default=10,
+        help="""
+            Sets number of GPU workers for loading data.
         """
     )
 
@@ -359,30 +428,7 @@ def get_args():
 
     conf["decoder_mode"] = args.decoder_mode.lower()
 
-    conf["bpe_flag"] = args.bpe
-    conf["flag_distill"] = args.distill
-
     conf["device"] = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    conf["num_workers"] = args.num_workers
-    conf["shuffle"] = args.shuffle
-    conf["lexicon"] = args.lexicon_path
-    conf["tokens"] = args.tokens_path
-    conf["model_dir"] = args.model_dir
-
-    conf["batch_size"] = args.batch_size
-    conf["n_batch_split"] = args.n_batch_split
-    conf["max_len"] = args.max_len
-    conf["d_model"] = args.d_model
-    conf["n_enc_layers"] = args.n_enc_layers_per_exit
-    conf["n_dec_layers"] = args.n_dec_layers
-    conf["n_heads"] = args.n_heads
-    conf["n_enc_exits"] = args.n_enc_exits
-    conf["d_feed_forward"] = args.d_feed_forward
-    conf["drop_prob"] = args.drop_prob
-    conf["depthwise_kernel_size"] = args.depthwise_kernel_size
-    conf["max_utterance_length"] = args.max_utterance_length
-    conf["aed_ce_weight"] = args.aed_ce_weight
-    conf["aed_ctc_weight"] = args.aed_ctc_weight
 
     conf["src_pad_idx"] = 0
     conf["trg_pad_idx"] = 30
@@ -402,19 +448,7 @@ def get_args():
         conf["dec_voc_size"] = conf["sp"].get_piece_size()
         conf["lexicon"] = "sentencepiece/build/librispeech-bpe-256.lex"
         conf["tokens"] = "sentencepiece/build/librispeech-bpe-256.tok"
-
-    conf["sample_rate"] = args.sample_rate
-    conf["n_fft"] = args.n_fft
-    conf["win_length"] = args.win_length
-    conf["hop_length"] = args.hop_length
-    conf["n_mels"] = args.n_mels
-
-    conf["init_lr"] = args.init_lr
-    conf["adam_eps"] = args.adam_eps
-    conf["warmup"] = args.warmup  
-    conf["epoch"] = 10000
-    conf["clip"] = args.clip
-    conf["weight_decay"] = args.weight_decay
+ 
     conf["inf"] = float('inf')
 
     return args

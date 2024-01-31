@@ -37,10 +37,15 @@ See below for additional configuration options.
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--decoder_mode`  | --                 | **Required**: Whether to use a connectionist temporal classification-based (`ctc`) or attention encoder-decoder-based (`aed`) decoder       |
-| `--num_threads` | `10`               | Sets number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
-| `--num_workers` | `10`               | Sets number of GPU workers for loading data      |
+| `--n_epochs` | `10000`               | Number of training epochs      |
+| `--n_threads` | `10`               | Number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
+| `--n_workers` | `10`               | Number of GPU workers for loading data      |
 | `--shuffle`       | `True`               | Shuffles training data upon loading       |
-| `--model_dir`       | `trained_model`               | Directory in which to save the trained model       |
+| `--save_model_dir`       | `/trained_model`               | Directory in which to save model checkpoints      |
+| `--load_model_path`       | `None`               | Path to model checkpoint to load for training/inference       |
+| `--load_model_dir`       | `None`               | Directory containing models checkpoints for model averaging       |
+| `--save_model_dir`       | `None`               | Starting epoch for model averaging       |
+| `--save_model_dir`       | `None`               | End epoch for model averaging      |
 
 ***Model parameters***
 
