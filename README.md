@@ -2,24 +2,47 @@
 
 Training dynamic [Conformer](https://arxiv.org/abs/2005.08100) models for Automatic Speech Recognition (ASR) using early-exiting training techniques. 
 
-***Paper***
+**Paper**
 
 Find our original paper on early-exit training, 'Training dynamic models using early exits for automatic speech recognition on resource-constrained devices', on [arXiv](https://arxiv.org/abs/2309.09546).
 
-***Acknowledgements***
+**Acknowledgements**
 
 Incorporates code from [Transformer PyTorch implementation by Hyunwoong Ko](https://github.com/hyunwoongko/transformer) and [SentencePiece unsupervised tokenizer](https://github.com/google/sentencepiece).
 
 ### Usage
 
-***Attention Encoder-Decoder***
+**Basic usage**
 
-`train.py --decoder_mode aed --option value`
+*Training a Attention Encoder-Decoder-based model*
 
-***CTC***
+`train.py --decoder_mode aed`
 
-`train.py --decoder_mode ctc --option value`
+*Training a CTC-based model*
 
+`train.py --decoder_mode ctc`
+
+*Inference with Attention Encoder-Decoder-based model*
+
+`inference.py --decoder_mode aed --load_model_path /path/to/model`
+
+*Inference with CTC-based model*
+
+`inference.py --decoder_mode ctc --load_model_path /path/to/model`
+
+**Advanced usage examples**
+
+*Training an AED-based model with 6 exits, one placed every 3 layers, for a total of 18 layers.*
+
+`train.py --decoder_mode aed --n_enc_exits 6 --n_enc_layers_per_exit 3`
+
+*Training a CTC-based model for 75 epochs with an initial learning rate of 1e-6. The model is initialized from a pre-trained model checkpoint found at the given path.*
+
+`train.py --decoder_mode ctc --n_epoch 75 --init_lr 1e-6 --load_model_path /path/to/model`
+
+*Inference with an AED-based architecture, based on the average of model checkpoints from epochs 95 through 100 found in the directory at the given path.*
+
+`inference.py --decoder_mode aed --load_model_dir /path/to/dir --avg_model_start 95 --avg_model_end 100`
 
 See below for additional configuration options.
 
@@ -27,7 +50,7 @@ See below for additional configuration options.
 
 *Note:* [SentencePiece](https://github.com/google/sentencepiece) is used to tokenize target labels.
 
-***Training setup and options***
+**Training setup and options**
 
 <!--- | `--bpe`           | `True`               | Whether to use BPE-based tokenization with SentencePiece       |
 | `--distill`       | `False`               | Whether to use knowledge distillation       | 
@@ -44,10 +67,10 @@ See below for additional configuration options.
 | `--save_model_dir`       | `/trained_model`               | Directory in which to save model checkpoints      |
 | `--load_model_path`       | `None`               | Path to model checkpoint to load for training/inference       |
 | `--load_model_dir`       | `None`               | Directory containing models checkpoints for model averaging       |
-| `--save_model_dir`       | `None`               | Starting epoch for model averaging       |
-| `--save_model_dir`       | `None`               | End epoch for model averaging      |
+| `--avg_model_start`       | `None`               | Starting epoch for model averaging       |
+| `--avg_model_end`       | `None`               | End epoch for model averaging      |
 
-***Model parameters***
+**Model parameters**
 
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
@@ -68,7 +91,7 @@ See below for additional configuration options.
 
 
 
-***Audio preprocessing***
+**Audio preprocessing**
 
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
@@ -78,7 +101,7 @@ See below for additional configuration options.
 | `--hop_length`           | `160`               | Length of hop between STFT windows used to generate spectrogram of raw audio input during preprocessing      |
 | `--n_mels`           | `80`               | Number of mel filterbanks used to compute STFT of raw audio input during preprocessing       |
 
-***Optimization***
+**Optimization**
 
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
@@ -87,3 +110,10 @@ See below for additional configuration options.
 | `--weight_decay`           | `5e-4`               | Weight decay coefficient used in AdamW optimization algorithm       |
 | `--warmup`         | `-1`               | Number of learning rate warmup steps. Default behavior (-1): Warmup for the length of the dataloader.       |
 | `--clip`           | `1.0`               | Gradient norms higher than this value will be clipped during training. See PyTorch torch.nn.utils.clip_grad_norm_ function       |
+
+**Inference parameters**
+
+| Variable          | Default value        | Description                    |
+| ----------------- | -------------------- | ------------------------------ |
+| `--beam_size`           | `10`               | Beam size for AED beam search inference       |
+| `--pen_alpha`           | `1.0`               | Sentence length penalty for AED beam search inference       |

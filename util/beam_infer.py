@@ -57,7 +57,7 @@ class BeamInference(object):
                                              tokens=args.tokens,
                                              nbest=self.N_BEST,
                                              log_add=False,
-                                             beam_size=15,  # 0, #500,
+                                             beam_size=args.beam_size,  # 0, #500,
                                              word_score=w_ins,
                                              lm_weight=self.LM_WEIGHT,
                                              blank_token="@",
@@ -69,7 +69,7 @@ class BeamInference(object):
                 tokens=args.tokens,
                 nbest=1,
                 log_add=True,
-                beam_size=1,
+                beam_size=args.beam_size,
                 lm_weight=self.LM_WEIGHT,
                 word_score=self.WORD_SCORE
             )
@@ -77,7 +77,7 @@ class BeamInference(object):
         # lm="lm.bin"
         # lm="4gram_small.arpa.lm"
         self.cuda_decoder = cuda_ctc_decoder(
-            args.tokens, nbest=1, beam_size=10, blank_skip_threshold=0.95)
+            args.tokens, nbest=1, beam_size=args.beam_size, blank_skip_threshold=0.95)
 
         self.greedy_decoder = GreedyCTCDecoder()
 
@@ -103,10 +103,10 @@ class BeamInference(object):
         if tokens == None:
             tokens = self.args.tokens
         
-        enc_len = torch.full(size=(1,), fill_value=emission.size(
+        enc_len = torch.full(size=(emission.size(0),), fill_value=emission.size(
             1), dtype=torch.int32).to(self.args.device)
         cuda_decoder = cuda_ctc_decoder(
-            tokens, nbest=1, beam_size=10, blank_skip_threshold=0.95)
+            tokens, nbest=1, beam_size=self.args.beam_size, blank_skip_threshold=0.95)
         
         results = cuda_decoder(emission, enc_len)
         return (results)
@@ -198,7 +198,7 @@ class BeamInference(object):
     def beam_search(self, model, encoder_output, layer_n, 
                     vocab_size=None, max_length=500, min_length=300, 
                     SOS_token=None, EOS_token=None, PAD_token=None, 
-                    beam_size=5, pen_alpha=0.6, return_best_beam=True):
+                    beam_size=None, pen_alpha=None, return_best_beam=True):
 
         if vocab_size == None:
             vocab_size = self.args.dec_voc_size
@@ -208,8 +208,12 @@ class BeamInference(object):
             EOS_token = self.args.trg_eos_idx
         if PAD_token == None:
             PAD_token = self.args.trg_pad_idx
-
-        pen_alpha = 1.0
+        if beam_size == None:
+            beam_size == self.args.beam_size
+        if pen_alpha == None:
+            pen_alpha = self.args.pen_alpha
+            
+        beam_size_count = beam_size
         
         # decoder_input = input_decoder[:,0:input_decoder.size(1)-5]
         decoder_input = torch.tensor(

@@ -418,6 +418,26 @@ def get_parser():
         """
     )
 
+    # Inference settings
+
+    parser.add_argument(
+        "--beam_size",
+        type=int,
+        default=10,
+        help="""
+            Beam size for AED inference.
+        """
+    )
+
+    parser.add_argument(
+        "--pen_alpha",
+        type=int,
+        default=1.0,
+        help="""
+            Sequence length penalty alpha for AED inference.
+        """
+    )
+
     return parser
 
 def get_args():

@@ -253,8 +253,8 @@ class CollateInferFn(object):
 
             if "ignore_time_segment_in_scoring" in label:
                 continue
-            spec = spec_transform(waveform)  # .to(self.args.device)
-            spec = melspec_transform(spec).to(self.args.device)
+            spec = spec_transform(waveform, self.args)  # .to(self.args.device)
+            spec = melspec_transform(spec, self.args).to(self.args.device)
             t_source += [spec.size(2)]
 
             npads = 1000
