@@ -1,40 +1,53 @@
-"""
-@author : Falavigna
-@when : 2023-02-24
-@homepage : https://github.com/
-"""
-from conf import *
+import torch
 import torchaudio
-from util.data_loader import collate_fn
-'''
-from util.tokenizer import Tokenizer
 
-tokenizer = Tokenizer()
-loader = DataLoader(ext=('.en', '.de'),
-                    tokenize_en=tokenizer.tokenize_en,
-                    tokenize_de=tokenizer.tokenize_de,
-                    init_token='<sos>',
-                    eos_token='<eos>')
+from util.data_loader import CollatePaddingFn, CollateInferFn
 
-train, valid, test = loader.make_dataset()
-loader.build_vocab(train_data=train, min_freq=2)
-train_iter, valid_iter, test_iter = loader.make_iter(train, valid, test,
-                                                     batch_size=batch_size,
-                                                     device=device)
 
-src_pad_idx = loader.source.vocab.stoi['<pad>']
-trg_pad_idx = loader.target.vocab.stoi['<pad>']
-trg_sos_idx = loader.target.vocab.stoi['<sos>']
+def get_data_loader(args):
 
-enc_voc_size = len(loader.source.vocab)
-dec_voc_size = len(loader.target.vocab)
-'''
+    # train_dataset1 = torchaudio.datasets.LIBRISPEECH(
+    #     "", url="train-clean-100", download=False)
+    # train_dataset2 = torchaudio.datasets.LIBRISPEECH(
+    #     "", url="train-clean-360", download=False)
+    # train_dataset3 = torchaudio.datasets.LIBRISPEECH(
+    #     "", url="train-other-500", download=False)
+    # train_dataset = torch.utils.data.ConcatDataset(
+    #     [train_dataset1, train_dataset2, train_dataset3])
 
-train_dataset1 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-clean-100", download=False)
-train_dataset2 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-clean-360", download=False)
-train_dataset3 = torchaudio.datasets.LIBRISPEECH("/falavi/corpora", url="train-other-500", download=False)
-train_dataset = torch.utils.data.ConcatDataset([train_dataset1,train_dataset2,train_dataset3]) 
+    train_dataset = torchaudio.datasets.LIBRISPEECH(
+        "", url="train-clean-100", download=False)
 
-data_loader = torch.utils.data.DataLoader(train_dataset, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
-data_loader_initial = torch.utils.data.DataLoader(train_dataset1, pin_memory=False, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
+    collate_padding_fn = CollatePaddingFn(args=args)
+    data_loader = torch.utils.data.DataLoader(train_dataset, 
+                                              pin_memory=False, 
+                                              batch_size=args.batch_size,
+                                              shuffle=args.shuffle, 
+                                              collate_fn=collate_padding_fn, 
+                                              num_workers=args.n_workers)
+    # data_loader_initial = torch.utils.data.DataLoader(
+    # train_dataset1, pin_memory=False, batch_size=args.batch_size, shuffle=args.shuffle, collate_fn=collate_padding_fn, num_workers=args.n_workers)
 
+    return data_loader
+
+
+def get_infer_data_loader(args, split=None, shuffle=None):
+
+    if shuffle == None:
+        shuffle = args.shuffle
+
+    try:
+        train_dataset = torchaudio.datasets.LIBRISPEECH(
+            "", url=split, download=False)
+
+        collate_infer_fn = CollateInferFn(args=args)
+        data_loader = torch.utils.data.DataLoader(train_dataset,
+                                                pin_memory=False,
+                                                batch_size=args.batch_size,
+                                                shuffle=shuffle,
+                                                collate_fn=collate_infer_fn,
+                                                num_workers=args.n_workers)
+        return data_loader
+
+    except:
+        exit("Invalid data split")
