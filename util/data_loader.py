@@ -226,7 +226,7 @@ class CollatePaddingFn(object):
                 o_batch = [tensors.squeeze(1), targets.squeeze(1),
                            torch.tensor(t_len), torch.tensor(t_source)]
 
-            out_batch.append(o_batch)
+                out_batch.append(o_batch)
 
         return out_batch
         # return c_tensors, c_targets, c_t_len, c_t_source

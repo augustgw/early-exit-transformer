@@ -4,6 +4,8 @@
 @homepage : https://github.com/gusdnd852
 @author : Daniele Falavigna
 @when : 2023-03-10
+@author : Maxence Lasbordes
+@when : 2024-09-02
 """
 import sys
 import torch
@@ -40,7 +42,104 @@ class Conv2dSubampling(nn.Module):
     def forward(self, inputs: Tensor) -> torch.tensor:
         outputs = self.sequential(inputs)
         return outputs
+    
+class Conv1dSubampling_Zipformer(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super(Conv1dSubampling_Zipformer, self).__init__()
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=2, padding=0, padding_mode='zeros')
+        
+    def forward(self, inputs: Tensor) -> torch.tensor:
+        outputs = self.conv(inputs)
+        return outputs
 
+class Upsampling(nn.Module):
+    def __init__(self, factor: int) -> None:
+        super(Upsampling, self).__init__()
+        self.factor = factor
+    
+    def forward(self, inputs: Tensor) -> torch.tensor:
+        output = torch.repeat_interleave(inputs, self.factor, dim=1)
+        return output 
+    
+class Downsampling(nn.Module):
+    def __init__(self, factor: int) -> None:
+        super(Downsampling, self).__init__()
+        self.factor = factor
+        
+    def forward(self, inputs: Tensor) -> torch.tensor:
+        outputs = inputs[:, ::self.factor, :]
+        return outputs
+
+class Zipformer(nn.Module):
+    
+    def __init__(self, src_pad_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers,  features_length, drop_prob, depthwise_kernel_size, device):
+        super().__init__()
+        self.input_dim=d_model
+        self.num_heads=n_head
+        self.ffn_dim=d_feed_forward
+        self.num_layers=n_enc_layers
+        self.depthwise_conv_kernel_size=depthwise_kernel_size
+        self.n_enc_exits=n_enc_exits
+        self.dropout=drop_prob
+        self.device=device
+        self.src_pad_idx=src_pad_idx
+        self.factors = [2,4,8,4,2] # Zipformer-L Downsampling factors
+        self.stack = [2,4,5,4,2] # Zipformer-L with 19 Conformer Blocks
+        
+        self.downsampling= nn.ModuleList([Downsampling(factor) for factor in self.factors])
+        self.downsampling_output = Downsampling(2)
+        self.upsampling = nn.ModuleList([Upsampling(factor) for factor in self.factors])
+        self.conv_subsample = Conv1dSubampling_Zipformer(in_channels=features_length, out_channels=d_model)
+        self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
+        self.linear=nn.Linear(d_model, dec_voc_size)
+        self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_exits)])
+    
+    def forward(self, src, lengths):
+        
+        src = self.conv_subsample(src)
+        src = self.positional_encoder(src.permute(0,2,1))
+        length=torch.clamp(lengths/2,max=src.size(1)).to(torch.int).to(self.device)
+        
+        enc_out=[]
+        base_length = length.to(self.device)
+        enc = src
+        
+        enc, _ = self.conformer[0](enc, base_length)
+        enc, _ = self.conformer[1](enc, base_length)
+        
+        for index in range(0, len(self.stack)):
+            src = enc 
+            factor = self.factors[index]
+            conf_index = 2 + sum(self.stack[:index])
+            pad = enc.size(1) % factor
+            
+            if pad != 0: # Padding
+                pad = factor - pad
+                padding = torch.zeros(enc.size(0), pad, enc.size(2), device=self.device)
+                enc = torch.cat((enc, padding), dim=1)
+            
+            enc = self.downsampling[index](enc) # Downsample before the stack
+            length = torch.clamp((lengths + pad)/factor, max=enc.size(1)).to(torch.int).to(self.device)
+            
+            for i in range(conf_index, conf_index + self.stack[index]):   
+                enc, _ = self.conformer[i](enc, length)
+            
+            enc = self.upsampling[index](enc) # Upsample after the stack
+            
+            if pad != 0: # Remove padding
+                enc = enc[:, :-pad, :]
+            length = torch.clamp(base_length, max=enc.size(1)).to(torch.int).to(self.device)
+            
+            enc = enc + src
+            
+        # ctc loss for 1 exit
+        out = self.downsampling_output(enc)
+        out = self.linear(out)
+        out = torch.nn.functional.log_softmax(out,dim=2)
+        enc_out = out.unsqueeze(0)
+        
+        return enc_out
+    
     
 class Early_transformer(nn.Module):
 
