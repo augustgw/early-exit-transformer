@@ -6,7 +6,7 @@ import torchaudio
 from torchaudio.models.decoder import ctc_decoder
 
 from data import get_infer_data_loader
-from models.model.early_exit import Early_conformer, full_conformer
+from models.model.early_exit import Early_conformer, full_conformer, Early_Zipformer, Early_conformer_plus
 from util.beam_infer import BeamInference
 from util.conf import get_args
 from util.data_loader import text_transform
@@ -139,19 +139,50 @@ def main():
                                device=args.device).to(args.device)
 
     elif args.decoder_mode == 'ctc':
-        model = Early_conformer(src_pad_idx=args.src_pad_idx,
-                                n_enc_exits=args.n_enc_exits,
-                                d_model=args.d_model,
-                                enc_voc_size=args.enc_voc_size,
-                                dec_voc_size=args.dec_voc_size,
-                                max_len=args.max_len,
-                                d_feed_forward=args.d_feed_forward,
-                                n_head=args.n_heads,
-                                n_enc_layers=args.n_enc_layers_per_exit,
-                                features_length=args.n_mels,
-                                drop_prob=args.drop_prob,
-                                depthwise_kernel_size=args.depthwise_kernel_size,
-                                device=args.device).to(args.device)
+        if args.model_type == 'Early_conformer':
+            model = Early_conformer(src_pad_idx=args.src_pad_idx,
+                                    n_enc_exits=args.n_enc_exits,
+                                    d_model=args.d_model,
+                                    enc_voc_size=args.enc_voc_size,
+                                    dec_voc_size=args.dec_voc_size,
+                                    max_len=args.max_len,
+                                    d_feed_forward=args.d_feed_forward,
+                                    n_head=args.n_heads,
+                                    n_enc_layers=args.n_enc_layers_per_exit,
+                                    features_length=args.n_mels,
+                                    drop_prob=args.drop_prob,
+                                    depthwise_kernel_size=args.depthwise_kernel_size,
+                                    device=args.device).to(args.device)
+            
+        elif args.model_type == 'Early_Zipformer':
+            model = Early_Zipformer(src_pad_idx=args.src_pad_idx,
+                                    n_enc_exits=args.n_enc_exits,
+                                    d_model=args.d_model,
+                                    enc_voc_size=args.enc_voc_size,
+                                    dec_voc_size=args.dec_voc_size,
+                                    max_len=args.max_len,
+                                    d_feed_forward=args.d_feed_forward,
+                                    n_head=args.n_heads,
+                                    n_enc_layers=args.n_enc_layers_per_exit,
+                                    features_length=args.n_mels,
+                                    drop_prob=args.drop_prob,
+                                    depthwise_kernel_size=args.depthwise_kernel_size,
+                                    device=args.device).to(args.device)
+            
+        elif args.model_type == 'Early_conformer_plus':
+            model = Early_conformer_plus(src_pad_idx=args.src_pad_idx,
+                                    n_enc_exits=args.n_enc_exits,
+                                    d_model=args.d_model,
+                                    enc_voc_size=args.enc_voc_size,
+                                    dec_voc_size=args.dec_voc_size,
+                                    max_len=args.max_len,
+                                    d_feed_forward=args.d_feed_forward,
+                                    n_head=args.n_heads,
+                                    n_enc_layers=args.n_enc_layers_per_exit,
+                                    features_length=args.n_mels,
+                                    drop_prob=args.drop_prob,
+                                    depthwise_kernel_size=args.depthwise_kernel_size,
+                                    device=args.device).to(args.device)
 
     else:
         raise ValueError(
