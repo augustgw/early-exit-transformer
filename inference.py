@@ -6,7 +6,7 @@ import torchaudio
 from torchaudio.models.decoder import ctc_decoder
 
 from data import get_infer_data_loader
-from models.model.early_exit import Early_conformer, full_conformer, Early_Zipformer, Early_conformer_plus
+from models.model.early_exit import Early_conformer, full_conformer, Early_zipformer, Early_conformer_plus
 from util.beam_infer import BeamInference
 from util.conf import get_args
 from util.data_loader import text_transform
@@ -139,7 +139,7 @@ def main():
                                device=args.device).to(args.device)
 
     elif args.decoder_mode == 'ctc':
-        if args.model_type == 'Early_conformer':
+        if args.model_type == 'early_conformer':
             model = Early_conformer(src_pad_idx=args.src_pad_idx,
                                     n_enc_exits=args.n_enc_exits,
                                     d_model=args.d_model,
@@ -154,8 +154,8 @@ def main():
                                     depthwise_kernel_size=args.depthwise_kernel_size,
                                     device=args.device).to(args.device)
             
-        elif args.model_type == 'Early_Zipformer':
-            model = Early_Zipformer(src_pad_idx=args.src_pad_idx,
+        elif args.model_type == 'early_zipformer':
+            model = Early_zipformer(src_pad_idx=args.src_pad_idx,
                                     n_enc_exits=args.n_enc_exits,
                                     d_model=args.d_model,
                                     enc_voc_size=args.enc_voc_size,
@@ -169,7 +169,7 @@ def main():
                                     depthwise_kernel_size=args.depthwise_kernel_size,
                                     device=args.device).to(args.device)
             
-        elif args.model_type == 'Early_conformer_plus':
+        elif args.model_type == 'early_conformer_plus':
             model = Early_conformer_plus(src_pad_idx=args.src_pad_idx,
                                     n_enc_exits=args.n_enc_exits,
                                     d_model=args.d_model,

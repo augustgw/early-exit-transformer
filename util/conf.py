@@ -26,8 +26,8 @@ def get_parser():
         "--model_type",
         type=str.lower,
         required=True,
-        choices=["Early_conformer","Early_Zipformer", "Early_conformer_plus" ],
-        default="Early_conformer",
+        choices=["early_conformer","early_zipformer", "early_conformer_plus" ],
+        default="early_conformer",
         help="""
             Required: If you use a connectionist temporal 
             classification-based ('ctc') decoder, choose 

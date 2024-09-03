@@ -70,7 +70,7 @@ class Downsampling(nn.Module):
         outputs = inputs[:, ::self.factor, :]
         return outputs
 
-class Early_Zipformer(nn.Module):
+class Early_zipformer(nn.Module):
     
     def __init__(self, src_pad_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers,  features_length, drop_prob, depthwise_kernel_size, device):
         super().__init__()
