@@ -177,7 +177,7 @@ def main():
                                     depthwise_kernel_size=args.depthwise_kernel_size,
                                     device=args.device).to(args.device)
             
-        elif args.model_type == 'early_zipformer':
+        if args.model_type == 'early_zipformer':
             model = Early_zipformer(src_pad_idx=args.src_pad_idx,
                                     n_enc_exits=args.n_enc_exits,
                                     d_model=args.d_model,
