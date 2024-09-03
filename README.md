@@ -17,9 +17,9 @@ Incorporates code from [Transformer PyTorch implementation by Hyunwoong Ko](http
 | Description          | Command        |
 | ----------------- | -------------------- |
 | Training an Attention Encoder-Decoder-based model | `train.py --decoder_mode aed` |
-| Training a CTC-based model | `train.py --decoder_mode ctc` |
+| Training a CTC-based model | `train.py --decoder_mode ctc --model_type model_name` |
 | Inference with an Attention Encoder-Decoder-based model | `inference.py --decoder_mode aed --load_model_path /path/to/model` |
-| Inference with a CTC-based model | `inference.py --decoder_mode ctc --load_model_path /path/to/model` |
+| Inference with a CTC-based model | `inference.py --decoder_mode ctc --model_type model_name --load_model_path /path/to/model` |
 
 **Advanced usage examples**
 
@@ -45,6 +45,7 @@ See below for additional configuration options.
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--decoder_mode`  | --                 | **Required**: Whether to use a connectionist temporal classification-based (`ctc`) or attention encoder-decoder-based (`aed`) decoder       |
+| `--model_type` | `early_conformer`               | Choose the model to use: `early_conformer`, `early_conformer_plus` or `early_zipformer`. (`ctc` decoder only)    |
 | `--n_epochs` | `10000`               | Number of training epochs      |
 | `--n_threads` | `10`               | Number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
 | `--n_workers` | `10`               | Number of GPU workers for loading data      |
