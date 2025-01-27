@@ -45,7 +45,7 @@ See below for additional configuration options.
 | Variable          | Default value        | Description                    |
 | ----------------- | -------------------- | ------------------------------ |
 | `--decoder_mode`  | --                 | **Required**: Whether to use a connectionist temporal classification-based (`ctc`) or attention encoder-decoder-based (`aed`) decoder       |
-| `--model_type` | `early_conformer`               | Choose the model to use: `early_conformer`, `early_conformer_plus` or `early_zipformer` (Only for `ctc` decoder)    |
+| `--model_type` | `early_conformer`               | Choose the model to use: `early_conformer`, `splitformer` or `early_zipformer` (Only for `ctc` decoder)    |
 | `--n_epochs` | `10000`               | Number of training epochs      |
 | `--n_threads` | `10`               | Number of threads for intraop parallelism on CPU. See PyTorch torch.set_num_threads method      |
 | `--n_workers` | `10`               | Number of GPU workers for loading data      |
@@ -56,7 +56,7 @@ See below for additional configuration options.
 | `--avg_model_start`       | `None`               | Starting epoch for model averaging       |
 | `--avg_model_end`       | `None`               | End epoch for model averaging      |
 
-- *Note 1:* In addition to the specified number of conformers and layers per conformer, the `early_conformer_plus` model automatically includes one extra parallel downsampled layer (a conformer with a single layer) before both the first and last exits. Which adds a total of two extra layers compared to the `early_conformer` model with the same parameters.
+- *Note 1:* In addition to the specified number of conformers and layers per conformer, the `splitformer` model automatically includes one extra parallel downsampled layer (a conformer with a single layer) before each exit. Which adds a total of `n_enc_exits` extra layers compared to the `early_conformer` model with the same parameters.
 
 - *Note 2:* Note 2: When using the `Early_zipformer`, due to its unique architecture, the parameters must be `--n_enc_exits 19` and `--n_enc_layers_per_exit 1`. You can only change these parameters by adjusting the model's structure.
 

@@ -141,7 +141,7 @@ class Early_zipformer(nn.Module):
         return enc_out
     
     
-class Early_conformer_plus(nn.Module): # Early-conformer with 2 Parallel Downsampled layers
+class Splitformer(nn.Module):
     
     def __init__(self, src_pad_idx, n_enc_exits, enc_voc_size, dec_voc_size, d_model, n_head, max_len,  d_feed_forward, n_enc_layers,  features_length, drop_prob, depthwise_kernel_size, device):
         super().__init__()
@@ -160,9 +160,9 @@ class Early_conformer_plus(nn.Module): # Early-conformer with 2 Parallel Downsam
         self.positional_encoder = PositionalEncoding(d_model=d_model, dropout=drop_prob, max_len=max_len)
         self.linears=nn.ModuleList([nn.Linear(d_model, dec_voc_size) for _ in range(self.n_enc_exits)])
         self.conformer=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=self.num_layers, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(self.n_enc_exits)])
-        self.downsampling= nn.ModuleList([Downsampling(self.factor) for _ in range(2)]) # downsampling layers for first and last exits
-        self.upsampling = nn.ModuleList([Upsampling(self.factor) for _ in range(2)]) # upsampling layers for first and last exits
-        self.conformer_parallel=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=1, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(2)]) # 2 conformer layers for parallel downsampling for first and last exits 
+        self.downsampling= nn.ModuleList([Downsampling(self.factor) for _ in range(n_enc_exits)]) # downsampling layers for each exit
+        self.upsampling = nn.ModuleList([Upsampling(self.factor) for _ in range(n_enc_exits)]) # upsampling layers for each exit
+        self.conformer_parallel=nn.ModuleList([Conformer(input_dim=self.input_dim, num_heads=self.num_heads, ffn_dim=self.ffn_dim, num_layers=1, depthwise_conv_kernel_size=self.depthwise_conv_kernel_size, dropout=self.dropout) for _ in range(n_enc_exits)]) # 1 conformer layer for parallel downsampling for each exit
         
     def forward(self, src, lengths):
   
@@ -179,26 +179,25 @@ class Early_conformer_plus(nn.Module): # Early-conformer with 2 Parallel Downsam
             enc_downsampled = enc 
             enc, _ = self.conformer[index](enc, base_length)
             
-            if index == 0 or index == self.n_enc_exits - 1: # Parallel downsampling for first and last exits
+            # Parallel downsampling for each exit
+            pad = enc_downsampled.size(1) % self.factor
+            if pad != 0: # Padding if necessary
+                pad = self.factor - pad
+                padding = torch.zeros(enc_downsampled.size(0), pad, enc_downsampled.size(2), device=self.device)
+                enc_downsampled = torch.cat((enc_downsampled, padding), dim=1)
                 
-                pad = enc_downsampled.size(1) % self.factor
-                if pad != 0: # Padding if necessary
-                    pad = self.factor - pad
-                    padding = torch.zeros(enc_downsampled.size(0), pad, enc_downsampled.size(2), device=self.device)
-                    enc_downsampled = torch.cat((enc_downsampled, padding), dim=1)
-                    
-                enc_downsampled = self.downsampling[index//(self.n_enc_exits-1)](enc_downsampled) # Downsampling
-                length = torch.clamp((lengths + pad)/self.factor, max=enc_downsampled.size(1)).to(torch.int).to(self.device)
-                
-                enc_downsampled, _ = self.conformer_parallel[index//(self.n_enc_exits-1)](enc_downsampled, length)
-                
-                enc_downsampled = self.upsampling[index//(self.n_enc_exits-1)](enc_downsampled) # Upsampling
-                
-                if pad != 0: # Remove padding
-                    enc_downsampled = enc_downsampled[:, :-pad, :]
-                length = torch.clamp(base_length, max=enc_downsampled.size(1)).to(torch.int).to(self.device)
-                
-                enc = enc + enc_downsampled
+            enc_downsampled = self.downsampling[index](enc_downsampled) # Downsampling
+            length = torch.clamp((lengths + pad)/self.factor, max=enc_downsampled.size(1)).to(torch.int).to(self.device)
+            
+            enc_downsampled, _ = self.conformer_parallel[index](enc_downsampled, length) # Parallel conformer layer
+            
+            enc_downsampled = self.upsampling[index](enc_downsampled) # Upsampling
+            
+            if pad != 0: # Remove padding
+                enc_downsampled = enc_downsampled[:, :-pad, :]
+            length = torch.clamp(base_length, max=enc_downsampled.size(1)).to(torch.int).to(self.device)
+            
+            enc = enc + enc_downsampled
             
             out = self.linears[index](enc)
             out = torch.nn.functional.log_softmax(out,dim=2)
