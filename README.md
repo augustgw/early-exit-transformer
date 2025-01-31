@@ -56,9 +56,9 @@ See below for additional configuration options.
 | `--avg_model_start`       | `None`               | Starting epoch for model averaging       |
 | `--avg_model_end`       | `None`               | End epoch for model averaging      |
 
-- *Note 1:* In addition to the specified number of conformers and layers per conformer, the `splitformer` model automatically includes one extra parallel downsampled layer (a conformer with a single layer) before each exit. Which adds a total of `n_enc_exits` extra layers compared to the `early_conformer` model with the same parameters.
+- *Note 1:* In addition to the specified number of conformers and layers per conformer, the `splitformer` model automatically includes one extra parallel downsampled layer (a conformer with a single layer) before the first and last exits. Which adds a total of 2 extra layers compared to the `early_conformer` model with the same parameters.
 
-- *Note 2:* Note 2: When using the `Early_zipformer`, due to its unique architecture, the parameters must be `--n_enc_exits 19` and `--n_enc_layers_per_exit 1`. You can only change these parameters by adjusting the model's structure.
+- *Note 2:* Note 2: When using the `Early_zipformer` (the U-Net modified model), due to its unique architecture, the parameters must be `--n_enc_exits 19` and `--n_enc_layers_per_exit 1`. You can only change these parameters by adjusting the model's structure.
 
 **Model parameters**
 
